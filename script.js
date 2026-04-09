@@ -5,6 +5,8 @@ const events = document.querySelectorAll(".event");
 
 const joinForm = document.querySelector(".join-form");
 const addCartButtons = document.querySelectorAll(".add-cart-btn");
+const mobileNavToggle = document.querySelector("#mobile-nav-toggle");
+const mainNavLinks = document.querySelector("#main-nav-links");
 const cartCountEls = document.querySelectorAll("[data-cart-count]");
 const cartList = document.querySelector("#cart-list");
 const cartTotal = document.querySelector("#cart-total");
@@ -411,6 +413,30 @@ if (joinForm) {
 }
 
 addCartButtons.forEach((btn) => bindAddToCartButton(btn));
+
+if (mobileNavToggle && mainNavLinks) {
+  mobileNavToggle.addEventListener("click", () => {
+    const isOpen = mainNavLinks.classList.toggle("is-open");
+    mobileNavToggle.classList.toggle("is-open", isOpen);
+    mobileNavToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  });
+
+  mainNavLinks.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      mainNavLinks.classList.remove("is-open");
+      mobileNavToggle.classList.remove("is-open");
+      mobileNavToggle.setAttribute("aria-expanded", "false");
+    });
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 960) {
+      mainNavLinks.classList.remove("is-open");
+      mobileNavToggle.classList.remove("is-open");
+      mobileNavToggle.setAttribute("aria-expanded", "false");
+    }
+  });
+}
 
 if (cartList) {
   cartList.addEventListener("click", (event) => {
