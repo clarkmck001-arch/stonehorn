@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stonehorn | Products</title>
+    <meta
+      name="description"
+      content="Shop Stonehorn hats and hoodies. Built for backcountry, everyday wear, and bragging rights."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="hero section">
+      <nav class="nav">
+        <a href="./index.html" class="brand-lockup" aria-label="Stonehorn home">
+          <img src="./archive-6.png" alt="Stonehorn logo" class="brand-logo" />
+          <p class="wordmark">STONEHORN</p>
+        </a>
+        <div class="nav-links">
+          <a href="./our-story.html" class="nav-tab">Our Story</a>
+          <a href="./bragging-board.html" class="nav-tab">Recent Bragging Board</a>
+          <a href="./account.html" class="nav-tab">Account</a>
+          <a href="#cart" class="nav-tab">Cart (<span data-cart-count>0</span>)</a>
+          <a href="#join" class="btn btn-sm">Join The Herd</a>
+        </div>
+      </nav>
+      <div class="hero-content reveal">
+        <p class="eyebrow">Everyday wear</p>
+        <h1>
+          Stonehorn
+          <span>You got to be handy with the steel, Earn your keep</span>
+        </h1>
+        <p class="lede">
+          Shop the current Stonehorn lineup. New colorways, proven fits, and
+          gear built for your next season.
+        </p>
+        <div class="hero-actions">
+          <a href="#lineup" class="btn">Shop Hats</a>
+          <a href="#hoodies" class="btn btn-ghost">Shop Hoodies</a>
+        </div>
+      </div>
+      <div class="hero-stats reveal">
+        <article>
+          <p class="stat" data-counter="10">0</p>
+          <p>Hat styles launched</p>
+        </article>
+        <article>
+          <p class="stat" data-counter="100">0</p>
+          <p>Community photo goal</p>
+        </article>
+        <article>
+          <p class="stat" data-counter="3">0</p>
+          <p>Core brand pillars</p>
+        </article>
+      </div>
+    </header>
+
+    <main>
+      <section id="hoodies" class="section hoodies reveal">
+        <p class="eyebrow">Also For Sale</p>
+        <h2>Stonehorn hoodie lineup.</h2>
+        <div class="hoodie-grid" id="hoodie-grid">
+          <article class="hoodie-card reveal">
+            <figure>
+              <img src="./archive-1.jpg" alt="Stonehorn Black Forest Hoodie" loading="lazy" />
+            </figure>
+            <h3>Black Forest Hoodie</h3>
+            <p class="small">Heavyweight fit. Nature camo concept.</p>
+            <p class="price" data-price-item="Black Forest Hoodie">$68</p>
+            <button class="btn btn-sm add-cart-btn" data-item="Black Forest Hoodie" data-price="68" type="button">
+              Add To Cart
+            </button>
+          </article>
+          <article class="hoodie-card reveal">
+            <figure>
+              <img src="./archive-2.jpg" alt="Stonehorn Green Brush Hoodie" loading="lazy" />
+            </figure>
+            <h3>Green Brush Hoodie</h3>
+            <p class="small">Statement print with clean silhouette.</p>
+            <p class="price" data-price-item="Green Brush Hoodie">$68</p>
+            <button class="btn btn-sm add-cart-btn" data-item="Green Brush Hoodie" data-price="68" type="button">
+              Add To Cart
+            </button>
+          </article>
+          <article class="hoodie-card reveal">
+            <figure>
+              <img src="./archive-3.jpg" alt="Stonehorn Earth Tone Hoodie" loading="lazy" />
+            </figure>
+            <h3>Earth Tone Hoodie</h3>
+            <p class="small">Muted pattern for everyday wear.</p>
+            <p class="price" data-price-item="Earth Tone Hoodie">$68</p>
+            <button class="btn btn-sm add-cart-btn" data-item="Earth Tone Hoodie" data-price="68" type="button">
+              Add To Cart
+            </button>
+          </article>
+          <article class="hoodie-card reveal">
+            <figure>
+              <img src="./hoodie-4-jacket.png" alt="Stonehorn Black Quilted Jacket" loading="lazy" />
+            </figure>
+            <h3>Black Quilted Jacket</h3>
+            <p class="small">Cold-weather Stonehorn layer.</p>
+            <p class="price" data-price-item="Black Quilted Jacket">$92</p>
+            <button class="btn btn-sm add-cart-btn" data-item="Black Quilted Jacket" data-price="92" type="button">
+              Add To Cart
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section id="lineup" class="section lineup reveal">
+        <p class="eyebrow">Hat Lineup</p>
+        <h2>Seven styles. One Stonehorn standard.</h2>
+        <div class="lineup-grid" id="lineup-grid">
+          <figure class="hat-shot reveal" style="--hat:url('./hat-patch-black.png')">
+            <img src="./hat-patch-black.png" alt="Stonehorn black leather patch hat" loading="lazy" />
+            <figcaption>
+              <p>Black Leather Patch</p>
+              <button class="btn btn-sm add-cart-btn" data-item="Black Leather Patch Hat" data-price="42" type="button">
+                Add To Cart - $42
+              </button>
+            </figcaption>
+          </figure>
+          <figure class="hat-shot reveal" style="--hat:url('./hat-text-cream.png')">
+            <img src="./hat-text-cream.png" alt="Stonehorn embroidered text hat" loading="lazy" />
+            <figcaption>
+              <p>Embroidered Text</p>
+              <button class="btn btn-sm add-cart-btn" data-item="Embroidered Text Hat" data-price="42" type="button">
+                Add To Cart - $42
+              </button>
+            </figcaption>
+          </figure>
+          <figure class="hat-shot reveal" style="--hat:url('./hat-ibex-black.png')">
+            <img src="./hat-ibex-black.png" alt="Stonehorn black ibex logo hat" loading="lazy" />
+            <figcaption>
+              <p>Black Ibex Logo</p>
+              <button class="btn btn-sm add-cart-btn" data-item="Black Ibex Logo Hat" data-price="42" type="button">
+                Add To Cart - $42
+              </button>
+            </figcaption>
+          </figure>
+          <figure class="hat-shot reveal" style="--hat:url('./hat-blue-rope.jpg')">
+            <img src="./hat-blue-rope.jpg" alt="Stonehorn blue rope hat" loading="lazy" />
+            <figcaption>
+              <p>Blue Rope</p>
+              <button class="btn btn-sm add-cart-btn" data-item="Blue Rope Hat" data-price="42" type="button">
+                Add To Cart - $42
+              </button>
+            </figcaption>
+          </figure>
+          <figure class="hat-shot reveal" style="--hat:url('./hat-cream-badge.jpg')">
+            <img src="./hat-cream-badge.jpg" alt="Stonehorn cream badge hat" loading="lazy" />
+            <figcaption>
+              <p>Cream Badge</p>
+              <button class="btn btn-sm add-cart-btn" data-item="Cream Badge Hat" data-price="42" type="button">
+                Add To Cart - $42
+              </button>
+            </figcaption>
+          </figure>
+          <figure class="hat-shot reveal" style="--hat:url('./hat-ibex-gold.jpg')">
+            <img src="./hat-ibex-gold.jpg" alt="Stonehorn black gold ibex hat" loading="lazy" />
+            <figcaption>
+              <p>Black Gold Ibex</p>
+              <button class="btn btn-sm add-cart-btn" data-item="Black Gold Ibex Hat" data-price="42" type="button">
+                Add To Cart - $42
+              </button>
+            </figcaption>
+          </figure>
+          <figure class="hat-shot reveal" style="--hat:url('./E687AD5D-0C5E-4A3B-81DA-5C65DB36D32F.PNG')">
+            <img src="./E687AD5D-0C5E-4A3B-81DA-5C65DB36D32F.PNG" alt="Stonehorn cream backcountry patch hat" loading="lazy" />
+            <figcaption>
+              <p>Cream Backcountry Patch</p>
+              <button class="btn btn-sm add-cart-btn" data-item="Cream Backcountry Patch Hat" data-price="42" type="button">
+                Add To Cart - $42
+              </button>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="cart" class="section reveal">
+        <p class="eyebrow">Cart</p>
+        <h2>Your selected products.</h2>
+        <div class="cart-panel">
+          <div id="cart-list"></div>
+          <p class="small">Cart total: <strong id="cart-total">$0.00</strong></p>
+          <div class="hunter-gate-actions">
+            <button id="cart-clear-btn" class="btn btn-ghost btn-sm" type="button">Clear Cart</button>
+            <a id="cart-checkout-btn" class="btn btn-sm" href="./checkout.html">Go To Checkout</a>
+          </div>
+          <p class="small" id="cart-status"></p>
+        </div>
+      </section>
+
+      <section id="join" class="section join reveal">
+        <p class="eyebrow">Stay In The Loop</p>
+        <h2>Get first access to new drops.</h2>
+        <form class="join-form">
+          <label for="email">Get first access to new drops and product releases</label>
+          <div>
+            <input id="email" type="email" placeholder="you@email.com" />
+            <button type="submit" class="btn">Claim Spot</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Stonehorn</p>
+      <p>Built with grit. Worn with intent.</p>
+    </footer>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,49 @@
+{
+  "2aefbcf67558e30aa75ed29403a76572": {
+    "verified": false,
+    "lastSubmissionId": null,
+    "createdAt": "2026-03-03T06:50:39.321Z"
+  },
+  "6857455c800b06c53a0812e92aff10ac": {
+    "verified": false,
+    "lastSubmissionId": null,
+    "createdAt": "2026-04-05T22:30:18.236Z"
+  },
+  "f4870dd97837c3fb1537e4ff87edd726": {
+    "verified": true,
+    "lastSubmissionId": "7a3ab10adf2c871d",
+    "createdAt": "2026-04-05T22:53:11.289Z",
+    "role": "admin",
+    "userId": "admin",
+    "name": "Stonehorn Admin",
+    "email": "stonehornsb@gmail.com"
+  },
+  "6d838a290a5e41e4d30f6225e058cd31": {
+    "verified": false,
+    "lastSubmissionId": null,
+    "createdAt": "2026-04-06T23:02:45.131Z"
+  },
+  "f7fa92124bbaf4ea7e51f79d33136519": {
+    "verified": false,
+    "lastSubmissionId": null,
+    "createdAt": "2026-04-06T23:03:46.201Z"
+  },
+  "80ab9978ea9c0b5e509220d4e474bb08": {
+    "verified": false,
+    "lastSubmissionId": null,
+    "createdAt": "2026-04-06T23:05:23.182Z",
+    "role": "user",
+    "userId": "a0d7fe65d622727f",
+    "name": "Test User",
+    "email": "testuser2@example.com"
+  },
+  "ef4e6a162a299911c1b90ddc2b439cd7": {
+    "verified": false,
+    "lastSubmissionId": null,
+    "createdAt": "2026-04-08T20:21:39.885Z",
+    "role": "guest",
+    "userId": null,
+    "name": "",
+    "email": ""
+  }
+}

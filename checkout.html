@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stonehorn | Checkout</title>
+    <meta name="description" content="Simple Stonehorn checkout." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="section">
+      <nav class="nav">
+        <a href="./index.html" class="brand-lockup" aria-label="Stonehorn home">
+          <img src="./archive-6.png" alt="Stonehorn logo" class="brand-logo" />
+          <p class="wordmark">STONEHORN</p>
+        </a>
+        <div class="nav-links">
+          <a href="./our-story.html" class="nav-tab">Our Story</a>
+          <a href="./bragging-board.html" class="nav-tab">Recent Bragging Board</a>
+          <a href="./account.html" class="nav-tab">Account</a>
+          <a href="./index.html#lineup" class="btn btn-sm">Back To Shop</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section reveal">
+        <p class="eyebrow">Checkout</p>
+        <h2>Secure Stripe checkout.</h2>
+        <form class="board-form" id="checkout-form">
+          <label for="checkout-item">Item</label>
+          <input id="checkout-item" type="text" readonly />
+
+          <label for="checkout-price">Price</label>
+          <input id="checkout-price" type="text" readonly />
+
+          <div id="checkout-cart-summary" class="small hidden"></div>
+
+          <label for="checkout-qty">Quantity</label>
+          <input id="checkout-qty" type="number" min="1" max="10" value="1" required />
+
+          <label for="checkout-name">Full Name</label>
+          <input id="checkout-name" type="text" required />
+
+          <label for="checkout-email">Email</label>
+          <input id="checkout-email" type="email" required />
+
+          <label for="checkout-address1">Address Line 1</label>
+          <input id="checkout-address1" type="text" required />
+
+          <label for="checkout-address2">Address Line 2</label>
+          <input id="checkout-address2" type="text" />
+
+          <label for="checkout-city">City</label>
+          <input id="checkout-city" type="text" required />
+
+          <label for="checkout-state">State</label>
+          <input id="checkout-state" type="text" required />
+
+          <label for="checkout-zip">ZIP</label>
+          <input id="checkout-zip" type="text" required />
+
+          <label for="checkout-country">Country (2-letter)</label>
+          <input id="checkout-country" type="text" maxlength="2" value="US" required />
+
+          <button type="submit" class="btn">Continue To Payment</button>
+          <p class="small" id="checkout-status"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

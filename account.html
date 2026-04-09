@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stonehorn | Account</title>
+    <meta name="description" content="Stonehorn account and checkout profile." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="section">
+      <nav class="nav">
+        <a href="./index.html" class="brand-lockup" aria-label="Stonehorn home">
+          <img src="./archive-6.png" alt="Stonehorn logo" class="brand-logo" />
+          <p class="wordmark">STONEHORN</p>
+        </a>
+        <div class="nav-links">
+          <a href="./our-story.html" class="nav-tab">Our Story</a>
+          <a href="./bragging-board.html" class="nav-tab">Recent Bragging Board</a>
+          <a href="./account.html" class="nav-tab is-active">Account</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section reveal">
+        <p class="eyebrow">Your Account</p>
+        <h2 id="account-greeting">Checking login...</h2>
+        <p id="account-role" class="small"></p>
+        <div class="hunter-gate-actions">
+          <a href="./login.html" class="btn btn-sm" id="account-login-link">Login</a>
+          <button type="button" class="btn btn-ghost btn-sm" id="account-logout-btn">Logout</button>
+        </div>
+      </section>
+
+      <section class="section reveal hidden" id="staff-links">
+        <p class="eyebrow">Staff Tools</p>
+        <div class="hunter-gate-actions">
+          <a class="btn btn-sm" href="./fulfillment.html">Open Fulfillment Dashboard</a>
+        </div>
+        <div class="hunter-gate-actions hidden" id="admin-only-links">
+          <a class="btn btn-sm" href="./admin-review.html">Open Review Queue</a>
+          <a class="btn btn-sm" href="./admin-orders.html">Open Orders Dashboard</a>
+        </div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

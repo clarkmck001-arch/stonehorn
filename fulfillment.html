@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stonehorn | Fulfillment</title>
+    <meta name="description" content="Worker fulfillment dashboard for Stonehorn orders." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="section">
+      <nav class="nav">
+        <a href="./index.html" class="brand-lockup" aria-label="Stonehorn home">
+          <img src="./archive-6.png" alt="Stonehorn logo" class="brand-logo" />
+          <p class="wordmark">STONEHORN</p>
+        </a>
+        <div class="nav-links">
+          <a href="./account.html" class="nav-tab">Account</a>
+          <a href="./fulfillment.html" class="nav-tab is-active">Fulfillment</a>
+          <a href="./admin-orders.html" class="nav-tab">Admin Orders</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section reveal">
+        <p class="eyebrow">Fulfillment Dashboard</p>
+        <h2>Pack and ship paid orders.</h2>
+        <div class="board-form" id="worker-auth-box">
+          <label for="worker-email">Worker Email</label>
+          <input id="worker-email" type="email" placeholder="worker@stonehorn.local" />
+          <label for="worker-password">Worker Password</label>
+          <input id="worker-password" type="password" placeholder="Enter worker password" />
+          <div class="hunter-gate-actions">
+            <button class="btn btn-sm" id="worker-login-btn" type="button">Login</button>
+            <button class="btn btn-ghost btn-sm" id="worker-refresh-btn" type="button">Refresh Orders</button>
+          </div>
+          <p class="small" id="worker-status"></p>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div id="fulfillment-list" class="recent-grid orders-grid"></div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

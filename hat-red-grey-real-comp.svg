@@ -1,0 +1,40 @@
+<svg width="1024" height="1536" viewBox="0 0 1024 1536" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="hatClip">
+      <path d="M116 846C116 548 278 298 512 298C746 298 908 548 908 846V952H116V846Z"/>
+      <path d="M94 948H930L886 1166C849 1338 697 1452 512 1452C327 1452 175 1338 138 1166L94 948Z"/>
+    </clipPath>
+    <clipPath id="crownClip">
+      <path d="M116 846C116 548 278 298 512 298C746 298 908 548 908 846V952H116V846Z"/>
+    </clipPath>
+    <clipPath id="brimClip">
+      <path d="M94 948H930L886 1166C849 1338 697 1452 512 1452C327 1452 175 1338 138 1166L94 948Z"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1024" height="1536" fill="#DCDCDC"/>
+  <image href="./hat-patch-black.png" width="1024" height="1536" preserveAspectRatio="xMidYMid slice"/>
+
+  <g clip-path="url(#hatClip)">
+    <rect width="1024" height="1536" fill="#6F747D" opacity="0.72"/>
+  </g>
+
+  <g clip-path="url(#crownClip)">
+    <rect x="74" y="242" width="876" height="760" fill="#7B8089" opacity="0.66"/>
+    <ellipse cx="512" cy="550" rx="358" ry="258" fill="#8A8F98" opacity="0.35"/>
+  </g>
+
+  <g clip-path="url(#brimClip)">
+    <rect x="70" y="920" width="884" height="560" fill="#B21F28" opacity="0.78"/>
+    <ellipse cx="512" cy="1098" rx="468" ry="206" fill="#8E1A22" opacity="0.58"/>
+  </g>
+
+  <path d="M156 870C156 594 304 372 512 372C720 372 868 594 868 870" stroke="#A4A8AF" stroke-width="10" opacity="0.65"/>
+  <path d="M126 952H898" stroke="#981C25" stroke-width="12" opacity="0.88"/>
+
+  <rect x="331" y="605" width="362" height="182" rx="35" fill="#AF1F27" opacity="0.9"/>
+  <rect x="344" y="618" width="336" height="156" rx="28" stroke="#CE4A51" stroke-width="4" fill="none"/>
+  <text x="512" y="724" text-anchor="middle" fill="#F1F1F1" font-size="70" font-weight="700" font-family="Georgia, serif" font-style="italic">Stonehorn</text>
+
+  <ellipse cx="512" cy="1440" rx="296" ry="42" fill="#1F232A" opacity="0.22"/>
+</svg>

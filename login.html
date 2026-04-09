@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stonehorn | Login</title>
+    <meta name="description" content="Stonehorn account login and signup." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="section">
+      <nav class="nav">
+        <a href="./index.html" class="brand-lockup" aria-label="Stonehorn home">
+          <img src="./archive-6.png" alt="Stonehorn logo" class="brand-logo" />
+          <p class="wordmark">STONEHORN</p>
+        </a>
+        <div class="nav-links">
+          <a href="./our-story.html" class="nav-tab">Our Story</a>
+          <a href="./bragging-board.html" class="nav-tab">Recent Bragging Board</a>
+          <a href="./account.html" class="nav-tab">Account</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section split">
+        <article class="card reveal">
+          <p class="eyebrow">Login</p>
+          <h3>Sign in to save checkout info.</h3>
+          <form id="login-form" class="board-form">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" required />
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" required />
+            <label class="small" for="login-save-pref">
+              <input id="login-save-pref" type="checkbox" checked />
+              Save checkout info automatically on this account
+            </label>
+            <button type="submit" class="btn">Login</button>
+            <p id="login-status" class="small"></p>
+          </form>
+        </article>
+
+        <article class="card reveal">
+          <p class="eyebrow">Create Account</p>
+          <h3>Make checkout faster next time.</h3>
+          <form id="signup-form" class="board-form">
+            <label for="signup-name">Name</label>
+            <input id="signup-name" type="text" required />
+            <label for="signup-email">Email</label>
+            <input id="signup-email" type="email" required />
+            <label for="signup-password">Password</label>
+            <input id="signup-password" type="password" minlength="6" required />
+            <label class="small" for="signup-save-pref">
+              <input id="signup-save-pref" type="checkbox" checked />
+              Save checkout info automatically on this account
+            </label>
+            <button type="submit" class="btn">Create Account</button>
+            <p id="signup-status" class="small"></p>
+          </form>
+        </article>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stonehorn | Recent Bragging Board</title>
+    <meta
+      name="description"
+      content="Recent Stonehorn Bragging Board entries, submission options, and Top 12 calendar selection details."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="section">
+      <nav class="nav">
+        <a href="./index.html" class="brand-lockup" aria-label="Stonehorn home">
+          <img src="./archive-6.png" alt="Stonehorn logo" class="brand-logo" />
+          <p class="wordmark">STONEHORN</p>
+        </a>
+        <div class="nav-links">
+          <a href="./our-story.html" class="nav-tab">Our Story</a>
+          <a href="./bragging-board.html" class="nav-tab is-active">Recent Bragging Board</a>
+          <a href="./account.html" class="nav-tab">Account</a>
+          <a href="./index.html#lineup" class="btn btn-sm">Shop Hats</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section brag-board reveal">
+        <p class="eyebrow">Recent Bragging Board</p>
+        <h2>Latest Stonehorn trophy submissions.</h2>
+        <p class="board-copy">
+          This is the live wall for recent entries. Submit your own photo to get
+          featured by buying any hat or paying the direct board fee.
+        </p>
+        <p id="board-status" class="small"></p>
+
+        <div class="recent-grid" id="recent-grid"></div>
+
+        <div class="board-options">
+          <article class="board-option reveal">
+            <p class="tag">Option 1</p>
+            <h3>Buy Any Hat + Get Featured</h3>
+            <p class="small">Purchase a hat and your board feature is included.</p>
+            <a class="btn btn-sm" href="./index.html#lineup">Go Shop Hats</a>
+          </article>
+          <article class="board-option reveal">
+            <p class="tag">Option 2</p>
+            <h3>Direct Bragging Board Fee</h3>
+            <p class="small">No purchase needed. Pay a one-time feature fee of $25.</p>
+            <a
+              class="btn btn-sm"
+              id="board-option-two"
+              href="./checkout.html?item=Bragging%20Board%20Entry&price=25&return_to=bragging-board&entry_path=Paying%20the%20%2425%20board%20fee"
+            >
+              Pay Entry Fee
+            </a>
+          </article>
+        </div>
+
+        <article class="calendar-callout reveal">
+          <p class="tag">Top 12 Program</p>
+          <h3>12 best photos are selected for the official Stonehorn calendar.</h3>
+          <p class="small">
+            Winning entries become the monthly spotlight and the calendar is
+            sold directly through Stonehorn.
+          </p>
+        </article>
+
+        <form id="bragging-form" class="board-form reveal hidden">
+          <input id="entry-token" type="hidden" />
+          <label for="hunter-name">Name</label>
+          <input id="hunter-name" type="text" placeholder="Your name" />
+
+          <label for="trophy-type">Trophy Type</label>
+          <input id="trophy-type" type="text" placeholder="Ex: Whitetail, Elk, Ram" />
+
+          <label for="story">Short Story</label>
+          <textarea id="story" rows="4" placeholder="Tell us about this hunt."></textarea>
+
+          <label for="trophy-photo">Upload Trophy Photo</label>
+          <input id="trophy-photo" type="file" accept="image/*" />
+
+          <label for="entry-path">How are you entering?</label>
+          <select id="entry-path">
+            <option>Buying a hat</option>
+            <option>Paying the $25 board fee</option>
+          </select>
+
+          <button type="submit" class="btn">Submit For Review</button>
+        </form>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Stonehorn</p>
+      <p>Built with grit. Worn with intent.</p>
+    </footer>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

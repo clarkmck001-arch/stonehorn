@@ -1,0 +1,9 @@
+{
+  "name": "stonehorn-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stonehorn product site with hunter verification gate",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

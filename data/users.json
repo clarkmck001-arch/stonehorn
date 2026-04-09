@@ -1,0 +1,40 @@
+[
+  {
+    "id": "a0d7fe65d622727f",
+    "name": "Test User",
+    "email": "testuser2@example.com",
+    "passwordHash": "969e0ced2b825c3229f4ad9aa350f49247151f737661bc3c7554dfcb7032480c",
+    "role": "user",
+    "checkoutProfile": {
+      "fullName": "Test User",
+      "email": "testuser2@example.com",
+      "address1": "1 Main",
+      "address2": "",
+      "city": "Boise",
+      "state": "ID",
+      "zip": "83702",
+      "country": "US",
+      "updatedAt": "2026-04-06T23:05:23.207Z"
+    },
+    "createdAt": "2026-04-06T23:05:23.190Z"
+  },
+  {
+    "id": "d36a72d8b7232e54",
+    "name": "Mckay",
+    "email": "clarkmck001@gmail.com",
+    "passwordHash": "5c5845c9f94b913465a2140ac9ea778c14a39940f715c4e51213adc6aeef9e79",
+    "role": "user",
+    "checkoutProfile": {
+      "fullName": "Mckay Clark",
+      "email": "clarkmck001@gmail.com",
+      "address1": "1114 E 1100 N St",
+      "address2": "",
+      "city": "Lehi",
+      "state": "UT",
+      "zip": "84043",
+      "country": "US",
+      "updatedAt": "2026-04-07T05:58:23.380Z"
+    },
+    "createdAt": "2026-04-06T23:20:00.588Z"
+  }
+]

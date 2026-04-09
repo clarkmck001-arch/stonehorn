@@ -1,0 +1,1352 @@
+const revealEls = document.querySelectorAll(".reveal");
+const counterEls = document.querySelectorAll("[data-counter]");
+const chips = document.querySelectorAll(".chip");
+const events = document.querySelectorAll(".event");
+
+const joinForm = document.querySelector(".join-form");
+const addCartButtons = document.querySelectorAll(".add-cart-btn");
+const cartCountEls = document.querySelectorAll("[data-cart-count]");
+const cartList = document.querySelector("#cart-list");
+const cartTotal = document.querySelector("#cart-total");
+const cartStatus = document.querySelector("#cart-status");
+const cartClearBtn = document.querySelector("#cart-clear-btn");
+const cartCheckoutBtn = document.querySelector("#cart-checkout-btn");
+const boardForm = document.querySelector("#bragging-form");
+const boardStatus = document.querySelector("#board-status");
+const boardOptionTwo = document.querySelector("#board-option-two");
+const recentGrid = document.querySelector("#recent-grid");
+
+const adminLoginBtn = document.querySelector("#admin-login-btn");
+const adminRefreshBtn = document.querySelector("#admin-refresh-btn");
+const adminOrdersRefreshBtn = document.querySelector("#admin-orders-refresh-btn");
+const dropsRefreshBtn = document.querySelector("#drops-refresh-btn");
+const dropsSendBtn = document.querySelector("#drops-send-btn");
+const dropsCount = document.querySelector("#drops-count");
+const dropsSubject = document.querySelector("#drops-subject");
+const dropsMessage = document.querySelector("#drops-message");
+const dropsPhoto = document.querySelector("#drops-photo");
+const dropsStatus = document.querySelector("#drops-status");
+const inventoryList = document.querySelector("#inventory-list");
+const inventoryRefreshBtn = document.querySelector("#inventory-refresh-btn");
+const inventorySaveBtn = document.querySelector("#inventory-save-btn");
+const inventoryStatus = document.querySelector("#inventory-status");
+const adminEmail = document.querySelector("#admin-email");
+const adminPassword = document.querySelector("#admin-password");
+const adminStatus = document.querySelector("#admin-status");
+const adminList = document.querySelector("#admin-list");
+const adminOrdersList = document.querySelector("#admin-orders-list");
+const adminOrdersSearch = document.querySelector("#admin-orders-search");
+const adminAuthBox = document.querySelector("#admin-auth-box");
+const workerLoginBtn = document.querySelector("#worker-login-btn");
+const workerRefreshBtn = document.querySelector("#worker-refresh-btn");
+const workerEmail = document.querySelector("#worker-email");
+const workerPassword = document.querySelector("#worker-password");
+const workerStatus = document.querySelector("#worker-status");
+const workerAuthBox = document.querySelector("#worker-auth-box");
+const fulfillmentList = document.querySelector("#fulfillment-list");
+
+const loginForm = document.querySelector("#login-form");
+const signupForm = document.querySelector("#signup-form");
+const loginStatus = document.querySelector("#login-status");
+const signupStatus = document.querySelector("#signup-status");
+const loginSavePref = document.querySelector("#login-save-pref");
+const signupSavePref = document.querySelector("#signup-save-pref");
+
+const accountGreeting = document.querySelector("#account-greeting");
+const accountRole = document.querySelector("#account-role");
+const accountLoginLink = document.querySelector("#account-login-link");
+const accountLogoutBtn = document.querySelector("#account-logout-btn");
+const staffLinks = document.querySelector("#staff-links");
+const adminOnlyLinks = document.querySelector("#admin-only-links");
+
+const checkoutForm = document.querySelector("#checkout-form");
+const checkoutItem = document.querySelector("#checkout-item");
+const checkoutPrice = document.querySelector("#checkout-price");
+const checkoutQty = document.querySelector("#checkout-qty");
+const checkoutCartSummary = document.querySelector("#checkout-cart-summary");
+const checkoutName = document.querySelector("#checkout-name");
+const checkoutEmail = document.querySelector("#checkout-email");
+const checkoutAddress1 = document.querySelector("#checkout-address1");
+const checkoutAddress2 = document.querySelector("#checkout-address2");
+const checkoutCity = document.querySelector("#checkout-city");
+const checkoutState = document.querySelector("#checkout-state");
+const checkoutZip = document.querySelector("#checkout-zip");
+const checkoutCountry = document.querySelector("#checkout-country");
+const checkoutStatus = document.querySelector("#checkout-status");
+const successBragBtn = document.querySelector("#success-brag-btn");
+
+const CHECKOUT_PREF_KEY = "stonehorn_save_checkout_pref";
+const CART_KEY = "stonehorn_cart";
+let adminOrdersCache = [];
+let publicInventoryMap = new Map();
+let publicPriceMap = new Map();
+let adminPriceMap = new Map();
+const PRODUCT_IMAGE_MAP = {
+  "Black Leather Patch Hat": "./hat-patch-black.png",
+  "Embroidered Text Hat": "./hat-text-cream.png",
+  "Black Ibex Logo Hat": "./hat-ibex-black.png",
+  "Blue Rope Hat": "./hat-blue-rope.jpg",
+  "Cream Badge Hat": "./hat-cream-badge.jpg",
+  "Black Gold Ibex Hat": "./hat-ibex-gold.jpg",
+  "Cream Backcountry Patch Hat": "./E687AD5D-0C5E-4A3B-81DA-5C65DB36D32F.PNG",
+  "Black Forest Hoodie": "./archive-1.jpg",
+  "Green Brush Hoodie": "./archive-2.jpg",
+  "Earth Tone Hoodie": "./archive-3.jpg",
+  "Black Quilted Jacket": "./hoodie-4-jacket.png",
+};
+
+const revealObserver = new IntersectionObserver(
+  (entries, observer) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("is-visible");
+      observer.unobserve(entry.target);
+    });
+  },
+  { threshold: 0.2 }
+);
+
+revealEls.forEach((el) => revealObserver.observe(el));
+
+const animateCounter = (el) => {
+  const goal = Number(el.dataset.counter) || 0;
+  const duration = 1200;
+  const start = performance.now();
+  const step = (now) => {
+    const progress = Math.min((now - start) / duration, 1);
+    el.textContent = String(Math.floor(goal * progress));
+    if (progress < 1) requestAnimationFrame(step);
+    else el.textContent = String(goal);
+  };
+  requestAnimationFrame(step);
+};
+
+const counterObserver = new IntersectionObserver(
+  (entries, observer) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      animateCounter(entry.target);
+      observer.unobserve(entry.target);
+    });
+  },
+  { threshold: 0.5 }
+);
+
+counterEls.forEach((el) => counterObserver.observe(el));
+
+chips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    chips.forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    const filter = chip.dataset.filter;
+    events.forEach((event) => {
+      const visible = filter === "all" || event.dataset.kind === filter;
+      event.style.display = visible ? "block" : "none";
+    });
+  });
+});
+
+const jsonFetch = async (url, options = {}) => {
+  try {
+    const response = await fetch(url, {
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...options,
+    });
+    const data = await response.json().catch(() => ({}));
+    return { ok: response.ok, status: response.status, data };
+  } catch {
+    return { ok: false, status: 0, data: { error: "Cannot reach Stonehorn server. Restart the app server." } };
+  }
+};
+
+const escapeHtml = (value) =>
+  String(value || "").replace(/[&<>"']/g, (char) => {
+    const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+    return map[char] || char;
+  });
+
+const formatOrderNumber = (stripeSessionId) => {
+  const raw = String(stripeSessionId || "").trim();
+  if (!raw) return "N/A";
+  const compact = raw.replace(/^cs_(test_|live_)?/i, "");
+  const tail = compact.slice(-8).toUpperCase();
+  return `SH-${tail || "N/A"}`;
+};
+
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const getProductImageForItem = (item) => PRODUCT_IMAGE_MAP[String(item || "").trim()] || "";
+const bindAddToCartButton = (btn) => {
+  if (!btn || btn.dataset.cartBound === "1") return;
+  btn.dataset.cartBound = "1";
+  btn.addEventListener("click", () => {
+    const item = String(btn.getAttribute("data-item") || "").trim();
+    const mappedPrice = publicPriceMap.get(item);
+    const unitPrice = Number.isFinite(mappedPrice) && mappedPrice > 0 ? Number(mappedPrice) : Number(btn.getAttribute("data-price") || 0);
+    if (!item || !Number.isFinite(unitPrice) || unitPrice <= 0) return;
+    const image = getProductImageForItem(item) || String(btn.getAttribute("data-image") || "").trim();
+    const stock = publicInventoryMap.get(item);
+    const cart = getCart();
+    const existing = cart.find((entry) => entry.item === item);
+    const currentQty = existing ? existing.quantity : 0;
+    const nextQty = Math.min(10, currentQty + 1);
+    if (stock && stock.remaining !== null && nextQty > Number(stock.remaining || 0)) {
+      if (cartStatus) {
+        cartStatus.textContent =
+          Number(stock.remaining || 0) > 0 ? `Only ${stock.remaining} left for ${item}.` : `${item} is sold out.`;
+      }
+      applyInventoryToButtons();
+      return;
+    }
+    if (existing) existing.quantity = nextQty;
+    else cart.push({ item, unitPrice, quantity: 1, image });
+    saveCart(cart);
+    renderCart();
+    if (cartStatus) cartStatus.textContent = `${item} added to cart.`;
+  });
+};
+
+const getCart = () => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => ({
+        item: String(item.item || "").trim().slice(0, 120),
+        unitPrice: Number(item.unitPrice || item.price || 0),
+        quantity: Math.max(1, Math.min(10, Number(item.quantity || 1))),
+        image: String(item.image || getProductImageForItem(item.item)).trim(),
+      }))
+      .filter((item) => item.item && Number.isFinite(item.unitPrice) && item.unitPrice > 0);
+  } catch {
+    return [];
+  }
+};
+
+const saveCart = (cart) => {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+};
+
+const getCartTotal = (cart) => cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+
+const updateCartCount = () => {
+  const count = getCart().reduce((sum, item) => sum + item.quantity, 0);
+  cartCountEls.forEach((el) => {
+    el.textContent = String(count);
+  });
+};
+
+const renderCart = () => {
+  if (!cartList || !cartTotal) {
+    updateCartCount();
+    return;
+  }
+  const cart = getCart();
+  updateCartCount();
+  if (!cart.length) {
+    cartList.innerHTML = '<p class="small">Your cart is empty.</p>';
+    cartTotal.textContent = "$0.00";
+    if (cartCheckoutBtn) cartCheckoutBtn.classList.add("disabled");
+    return;
+  }
+  cartList.innerHTML = cart
+    .map((item, idx) => {
+      const imageSrc = item.image || getProductImageForItem(item.item);
+      return `
+      <article class="cart-row">
+        <div class="cart-row-main">
+          ${
+            imageSrc
+              ? `<img class="cart-thumb" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(item.item)}" loading="lazy" />`
+              : ""
+          }
+          <p class="small"><strong>${escapeHtml(item.item)}</strong></p>
+        </div>
+        <p class="small">$${item.unitPrice.toFixed(2)} x ${item.quantity}</p>
+        <div class="hunter-gate-actions">
+          <button class="btn btn-ghost btn-sm cart-action" data-action="decrease" data-idx="${idx}" type="button">-</button>
+          <button class="btn btn-ghost btn-sm cart-action" data-action="increase" data-idx="${idx}" type="button">+</button>
+          <button class="btn btn-ghost btn-sm cart-action" data-action="remove" data-idx="${idx}" type="button">Remove</button>
+        </div>
+      </article>
+    `;
+    })
+    .join("");
+  cartTotal.textContent = `$${getCartTotal(cart).toFixed(2)}`;
+  if (cartCheckoutBtn) cartCheckoutBtn.classList.remove("disabled");
+};
+
+const applyInventoryToButtons = () => {
+  document.querySelectorAll(".add-cart-btn").forEach((btn) => {
+    const item = String(btn.getAttribute("data-item") || "").trim();
+    if (!item) return;
+    const stock = publicInventoryMap.get(item);
+    let note = btn.parentElement?.querySelector(".stock-note");
+    if (!note && btn.parentElement) {
+      note = document.createElement("p");
+      note.className = "small stock-note";
+      btn.parentElement.appendChild(note);
+    }
+    if (!stock || stock.remaining === null) {
+      btn.disabled = false;
+      btn.classList.remove("disabled");
+      if (note) note.textContent = "";
+      return;
+    }
+    if (!stock.inStock || Number(stock.remaining) <= 0) {
+      btn.disabled = true;
+      btn.classList.add("disabled");
+      if (note) note.textContent = "Sold out";
+      return;
+    }
+    btn.disabled = false;
+    btn.classList.remove("disabled");
+    if (stock.lowStock) {
+      note.textContent = `Only ${stock.remaining} left`;
+    } else if (note) {
+      note.textContent = "";
+    }
+  });
+};
+
+const loadPublicInventory = async () => {
+  const { ok, data } = await jsonFetch("/api/inventory/public", { method: "GET" });
+  if (!ok || !Array.isArray(data.items)) return;
+  publicInventoryMap = new Map(data.items.map((entry) => [entry.item, entry]));
+  applyInventoryToButtons();
+};
+
+const applyPublicPricing = () => {
+  document.querySelectorAll(".add-cart-btn").forEach((btn) => {
+    const item = String(btn.getAttribute("data-item") || "").trim();
+    if (!item) return;
+    const price = publicPriceMap.get(item);
+    if (!Number.isFinite(price) || price <= 0) return;
+    btn.setAttribute("data-price", String(price));
+    btn.textContent = `Add To Cart - $${Number(price).toFixed(2)}`;
+  });
+
+  document.querySelectorAll("[data-price-item]").forEach((el) => {
+    const item = String(el.getAttribute("data-price-item") || "").trim();
+    if (!item) return;
+    const price = publicPriceMap.get(item);
+    if (!Number.isFinite(price) || price <= 0) return;
+    el.textContent = `$${Number(price).toFixed(2)}`;
+  });
+
+  const cart = getCart();
+  let changed = false;
+  cart.forEach((entry) => {
+    const price = publicPriceMap.get(entry.item);
+    if (Number.isFinite(price) && price > 0 && Number(entry.unitPrice) !== Number(price)) {
+      entry.unitPrice = Number(price);
+      changed = true;
+    }
+  });
+  if (changed) {
+    saveCart(cart);
+    renderCart();
+  } else {
+    updateCartCount();
+  }
+};
+
+const loadPublicPricing = async () => {
+  const { ok, data } = await jsonFetch("/api/pricing/public", { method: "GET" });
+  if (!ok || !Array.isArray(data.items)) return;
+  publicPriceMap = new Map(data.items.map((entry) => [entry.item, Number(entry.price)]));
+  applyPublicPricing();
+};
+
+const getAuthMe = async () => {
+  const { ok, data } = await jsonFetch("/api/auth/me", { method: "GET" });
+  if (!ok) return { loggedIn: false, role: "guest", name: "", email: "" };
+  return data;
+};
+
+const getCheckoutProfile = async () => {
+  const { ok, data } = await jsonFetch("/api/profile/checkout", { method: "GET" });
+  if (!ok) return null;
+  return data.profile || {};
+};
+
+const saveCheckoutProfile = async (profile) => {
+  const { ok, data } = await jsonFetch("/api/profile/checkout", {
+    method: "POST",
+    body: JSON.stringify(profile),
+  });
+  return { ok, data };
+};
+
+if (joinForm) {
+  joinForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = joinForm.querySelector("button");
+    const emailInput = joinForm.querySelector("#email");
+    if (!button || !emailInput) return;
+    const email = String(emailInput.value || "").trim();
+    if (!email) {
+      button.textContent = "Enter Email";
+      return;
+    }
+    button.textContent = "Joining...";
+    button.disabled = true;
+    const { ok, data } = await jsonFetch("/api/drops/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    if (!ok) {
+      button.textContent = data.error ? "Invalid Email" : "Try Again";
+      button.disabled = false;
+      return;
+    }
+    button.textContent = data.alreadySubscribed ? "Already On List" : "You Are In";
+  });
+}
+
+addCartButtons.forEach((btn) => bindAddToCartButton(btn));
+
+if (cartList) {
+  cartList.addEventListener("click", (event) => {
+    const btn = event.target.closest(".cart-action");
+    if (!btn) return;
+    const idx = Number(btn.getAttribute("data-idx"));
+    const action = btn.getAttribute("data-action");
+    const cart = getCart();
+    if (!Number.isInteger(idx) || idx < 0 || idx >= cart.length) return;
+    if (action === "increase") cart[idx].quantity = Math.min(10, cart[idx].quantity + 1);
+    if (action === "decrease") cart[idx].quantity = Math.max(1, cart[idx].quantity - 1);
+    if (action === "remove") cart.splice(idx, 1);
+    saveCart(cart);
+    renderCart();
+  });
+}
+
+if (cartClearBtn) {
+  cartClearBtn.addEventListener("click", () => {
+    saveCart([]);
+    renderCart();
+    if (cartStatus) cartStatus.textContent = "Cart cleared.";
+  });
+}
+
+if (cartCheckoutBtn) {
+  cartCheckoutBtn.addEventListener("click", (event) => {
+    const cart = getCart();
+    if (!cart.length) {
+      event.preventDefault();
+      if (cartStatus) cartStatus.textContent = "Add products before checkout.";
+    }
+  });
+}
+
+const loadRecentBoard = async () => {
+  if (!recentGrid) return;
+  const { ok, data } = await jsonFetch("/api/bragging/recent", { method: "GET" });
+  if (!ok || !Array.isArray(data.items)) {
+    recentGrid.innerHTML = '<p class="small">Could not load recent entries.</p>';
+    return;
+  }
+  if (!data.items.length) {
+    recentGrid.innerHTML = '<p class="small">No approved entries yet. Submit yours to start the board.</p>';
+    return;
+  }
+  recentGrid.innerHTML = data.items
+    .map(
+      (item) => `
+      <article class="recent-card reveal is-visible">
+        <img src="${escapeHtml(item.imagePath)}" alt="${escapeHtml(item.trophyType || "Bragging board entry")}" loading="lazy" />
+        <p class="small"><strong>${escapeHtml(item.name || "Stonehorn Hunter")}</strong></p>
+        <p class="small">${escapeHtml(item.trophyType || "Trophy Entry")}</p>
+        <p class="small recent-story">${escapeHtml(item.story || "No story shared yet.")}</p>
+      </article>
+    `
+    )
+    .join("");
+};
+
+const setBoardEntryAndFocus = (entryValue) => {
+  if (!boardForm) return;
+  boardForm.classList.remove("hidden");
+  const entry = boardForm.querySelector("#entry-path");
+  if (entry && entryValue) entry.value = entryValue;
+  boardForm.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
+if (boardOptionTwo && boardForm) {
+  boardOptionTwo.addEventListener("click", (event) => {
+    const href = boardOptionTwo.getAttribute("href") || "";
+    if (href.startsWith("#")) {
+      event.preventDefault();
+      setBoardEntryAndFocus("Paying the $25 board fee");
+    }
+  });
+}
+
+if (boardForm) {
+  const params = new URLSearchParams(window.location.search);
+  const fromCheckout = params.get("from_checkout") === "1";
+  const entryToken = params.get("entry_token") || "";
+  const entryPath = params.get("entry_path") || "";
+  const entry = boardForm.querySelector("#entry-path");
+  const tokenInput = boardForm.querySelector("#entry-token");
+  if (tokenInput) tokenInput.value = entryToken;
+  if (entryPath && entry) entry.value = entryPath;
+  boardForm.classList.add("hidden");
+
+  if (fromCheckout) {
+    if (!entryToken) {
+      if (boardStatus) boardStatus.textContent = "No valid entry token was found. Use your order confirmation link.";
+    } else {
+      jsonFetch(`/api/bragging/entry-access?token=${encodeURIComponent(entryToken)}`, { method: "GET" }).then(
+        ({ ok, data }) => {
+          if (!ok || !data.allowed) {
+            if (boardStatus) {
+              boardStatus.textContent = data?.reason || "This entry link is not valid.";
+            }
+            return;
+          }
+          if (entry && data.entryPath) entry.value = data.entryPath;
+          if (boardStatus) {
+            boardStatus.textContent = "Checkout complete. You can submit one Bragging Board entry for this purchase.";
+          }
+          setBoardEntryAndFocus(data.entryPath || entryPath || "Buying a hat");
+        }
+      );
+    }
+  }
+
+  boardForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = boardForm.querySelector("button");
+    const photoInput = boardForm.querySelector("#trophy-photo");
+    const nameInput = boardForm.querySelector("#hunter-name");
+    const typeInput = boardForm.querySelector("#trophy-type");
+    const storyInput = boardForm.querySelector("#story");
+    const entryInput = boardForm.querySelector("#entry-path");
+    const entryTokenInput = boardForm.querySelector("#entry-token");
+    if (!button || !photoInput || !nameInput || !typeInput || !storyInput || !entryInput || !entryTokenInput) return;
+    if (!entryTokenInput.value) {
+      button.textContent = "Invalid Entry Link";
+      if (boardStatus) boardStatus.textContent = "Use your order confirmation link to submit your entry.";
+      return;
+    }
+    if (!photoInput.files.length) {
+      button.textContent = "Add Trophy Photo First";
+      return;
+    }
+    const file = photoInput.files[0];
+    if (!file.type.startsWith("image/")) {
+      button.textContent = "Image File Required";
+      return;
+    }
+    button.textContent = "Uploading...";
+    button.disabled = true;
+    try {
+      const imageDataUrl = await fileToDataUrl(file);
+      const { ok, data } = await jsonFetch("/api/bragging/submit", {
+        method: "POST",
+        body: JSON.stringify({
+          name: nameInput.value.trim(),
+          trophyType: typeInput.value.trim(),
+          story: storyInput.value.trim(),
+          entryPath: entryInput.value,
+          entryToken: entryTokenInput.value.trim(),
+          imageDataUrl,
+        }),
+      });
+      if (!ok) {
+        button.textContent = "Submit Failed";
+        button.disabled = false;
+        if (boardStatus) boardStatus.textContent = data.error || "Submission failed.";
+        return;
+      }
+      button.textContent = "Submitted";
+      boardForm.classList.add("hidden");
+      entryTokenInput.value = "";
+      if (boardStatus) boardStatus.textContent = "Submission received and pending review. This purchase entry has been used.";
+    } catch {
+      button.textContent = "Submit Failed";
+      button.disabled = false;
+      if (boardStatus) boardStatus.textContent = "Upload failed. Try again.";
+    }
+  });
+}
+
+const renderAdminItems = (items) => {
+  if (!adminList) return;
+  if (!items.length) {
+    adminList.innerHTML = '<p class="small">No submissions yet.</p>';
+    return;
+  }
+  adminList.innerHTML = items
+    .map(
+      (item) => `
+      <article class="recent-card reveal is-visible">
+        <img src="${escapeHtml(item.imagePath)}" alt="Submission ${escapeHtml(item.id)}" loading="lazy" />
+        <p class="small"><strong>${escapeHtml(item.name || "Unknown Hunter")}</strong></p>
+        <p class="small">${escapeHtml(item.trophyType || "No trophy type provided")}</p>
+        <p class="small recent-story">${escapeHtml(item.story || "No story provided.")}</p>
+        <p class="small">Status: ${escapeHtml(item.status || "pending")}</p>
+        <div class="hunter-gate-actions">
+          <button class="btn btn-sm admin-action" data-id="${item.id}" data-action="approve">Approve</button>
+          <button class="btn btn-ghost btn-sm admin-action" data-id="${item.id}" data-action="reject">Reject</button>
+          <button class="btn btn-ghost btn-sm admin-action" data-id="${item.id}" data-action="edit">Edit</button>
+          <button class="btn btn-ghost btn-sm admin-action" data-id="${item.id}" data-action="delete">Delete</button>
+        </div>
+      </article>
+    `
+    )
+    .join("");
+
+  adminList.querySelectorAll(".admin-action").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-id");
+      const action = btn.getAttribute("data-action");
+      if (!id || !action) return;
+
+      if (action === "edit") {
+        const current = items.find((entry) => entry.id === id) || {};
+        const nextName = prompt("Edit hunter name:", current.name || "");
+        if (nextName === null) return;
+        const nextType = prompt("Edit trophy type:", current.trophyType || "");
+        if (nextType === null) return;
+        const nextStory = prompt("Edit short story:", current.story || "");
+        if (nextStory === null) return;
+        const { ok, data } = await jsonFetch(`/api/admin/submissions/${id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: nextName.trim(),
+            trophyType: nextType.trim(),
+            story: nextStory.trim(),
+          }),
+        });
+        if (!ok) {
+          if (adminStatus) adminStatus.textContent = data.error || "Edit failed.";
+          return;
+        }
+        if (adminStatus) adminStatus.textContent = "Submission updated.";
+        await loadAdminQueue();
+        return;
+      }
+
+      if (action === "delete") {
+        const confirmed = window.confirm("Delete this submission? This removes it from the bragging board.");
+        if (!confirmed) return;
+        const { ok, data } = await jsonFetch(`/api/admin/submissions/${id}`, { method: "DELETE" });
+        if (!ok) {
+          if (adminStatus) adminStatus.textContent = data.error || "Delete failed.";
+          return;
+        }
+        if (adminStatus) adminStatus.textContent = "Submission deleted.";
+        await loadAdminQueue();
+        return;
+      }
+
+      const { ok } = await jsonFetch(`/api/admin/submissions/${id}/${action}`, { method: "POST" });
+      if (!ok) {
+        if (adminStatus) adminStatus.textContent = "Action failed.";
+        return;
+      }
+      if (adminStatus) adminStatus.textContent = `Submission ${action}d.`;
+      await loadAdminQueue();
+    });
+  });
+};
+
+const loadAdminQueue = async () => {
+  if (!adminList) return;
+  const { ok, data } = await jsonFetch("/api/admin/submissions", { method: "GET" });
+  if (!ok) {
+    adminList.innerHTML = '<p class="small">Login required to view submissions.</p>';
+    return;
+  }
+  renderAdminItems(data.items || []);
+};
+
+const renderAdminOrders = (items) => {
+  if (!adminOrdersList) return;
+  if (!items.length) {
+    adminOrdersList.innerHTML = '<p class="small">No orders yet.</p>';
+    return;
+  }
+  adminOrdersList.innerHTML = items
+    .map((item) => {
+      const amount = Number(item.amountTotal || item.unitAmount || 0) / 100;
+      const paidDate = item.paidAt ? new Date(item.paidAt).toLocaleDateString() : "-";
+      const emailState = item.emailSentAt ? "Sent" : item.emailError ? "Error" : "Pending";
+      const orderNum = formatOrderNumber(item.stripeSessionId);
+      const fulfillmentState =
+        item.status === "shipped"
+          ? "Shipped"
+          : item.status === "packed"
+            ? "Packed"
+            : item.status === "paid"
+              ? "Unfulfilled"
+              : item.status || "Unknown";
+      const fulfillmentClass =
+        item.status === "shipped" || item.status === "packed"
+          ? "fulfillment-good"
+          : item.status === "paid"
+            ? "fulfillment-bad"
+            : "fulfillment-neutral";
+      const shippedDate = item.shippedAt ? new Date(item.shippedAt).toLocaleDateString() : "";
+      const trackingSummary =
+        item.status === "shipped" && item.trackingNumber
+          ? `${item.carrier ? `${item.carrier} ` : ""}${item.trackingNumber}`
+          : "";
+      return `
+      <article class="recent-card order-card reveal is-visible">
+        <p class="small"><strong>${item.item || "Stonehorn Item"}</strong></p>
+        <p class="small">Order: ${orderNum}</p>
+        <p class="small">Amount: $${amount.toFixed(2)}</p>
+        <p class="small">Email: ${item.customerEmail || "N/A"}</p>
+        <p class="small">Status: ${item.status || "unknown"} | Paid: ${paidDate}</p>
+        <p class="small ${fulfillmentClass}">Fulfillment: ${fulfillmentState}${shippedDate ? ` (${shippedDate})` : ""}</p>
+        ${trackingSummary ? `<p class="small">Tracking: ${trackingSummary}</p>` : ""}
+        <p class="small">Confirmation Email: ${emailState}</p>
+      </article>
+      `;
+    })
+    .join("");
+};
+
+const renderFilteredAdminOrders = () => {
+  const query = (adminOrdersSearch?.value || "").trim().toLowerCase();
+  if (!query) {
+    renderAdminOrders(adminOrdersCache);
+    return;
+  }
+  const filtered = adminOrdersCache.filter((item) => {
+    const email = String(item.customerEmail || "").toLowerCase();
+    const orderId = String(item.stripeSessionId || "").toLowerCase();
+    const shortOrder = formatOrderNumber(item.stripeSessionId).toLowerCase();
+    return email.includes(query) || orderId.includes(query) || shortOrder.includes(query);
+  });
+  renderAdminOrders(filtered);
+};
+
+const loadAdminOrders = async () => {
+  if (!adminOrdersList) return;
+  const { ok, data } = await jsonFetch("/api/admin/orders", { method: "GET" });
+  if (!ok) {
+    adminOrdersList.innerHTML = '<p class="small">Login required to view orders.</p>';
+    return;
+  }
+  adminOrdersCache = Array.isArray(data.items) ? data.items.slice(0, 5) : [];
+  renderFilteredAdminOrders();
+};
+
+const loadDropSubscribers = async () => {
+  if (!dropsCount) return;
+  const { ok, data } = await jsonFetch("/api/admin/drops/subscribers", { method: "GET" });
+  if (!ok) {
+    dropsCount.textContent = "Admin login required to view subscribers.";
+    return;
+  }
+  const items = Array.isArray(data.items) ? data.items : [];
+  dropsCount.textContent = `${items.length} subscriber${items.length === 1 ? "" : "s"}.`;
+};
+
+const renderAdminInventory = (items) => {
+  if (!inventoryList) return;
+  if (!items.length) {
+    inventoryList.innerHTML = '<p class="small">No inventory items found.</p>';
+    return;
+  }
+  const header = `
+    <div class="inventory-row inventory-row-head">
+      <p class="small"><strong>Item</strong></p>
+      <p class="small"><strong>Stock</strong></p>
+      <p class="small"><strong>Price</strong></p>
+      <p class="small"><strong>Remaining</strong></p>
+    </div>
+  `;
+  inventoryList.innerHTML = items
+    .map((entry) => {
+      const stockVal = entry.stock === null || typeof entry.stock === "undefined" ? "" : String(entry.stock);
+      const priceVal = Number(adminPriceMap.get(entry.item) || 0).toFixed(2);
+      const remainingLabel =
+        entry.remaining === null ? "Not tracked" : `${entry.remaining} left (sold ${entry.sold || 0})`;
+      return `
+        <div class="inventory-row">
+          <p class="small"><strong>${escapeHtml(entry.item)}</strong></p>
+          <input type="number" min="0" step="1" data-item-stock="${escapeHtml(entry.item)}" value="${escapeHtml(stockVal)}" placeholder="Untracked" />
+          <input type="number" min="0.01" step="0.01" data-item-price="${escapeHtml(entry.item)}" value="${escapeHtml(priceVal)}" />
+          <p class="small">${escapeHtml(remainingLabel)}</p>
+        </div>
+      `;
+    })
+    .join("");
+  inventoryList.innerHTML = header + inventoryList.innerHTML;
+};
+
+const loadAdminInventory = async () => {
+  if (!inventoryList) return;
+  const [inventoryResp, pricingResp] = await Promise.all([
+    jsonFetch("/api/admin/inventory", { method: "GET" }),
+    jsonFetch("/api/admin/pricing", { method: "GET" }),
+  ]);
+  if (!inventoryResp.ok) {
+    inventoryList.innerHTML = '<p class="small">Admin login required to view inventory.</p>';
+    return;
+  }
+  if (pricingResp.ok && Array.isArray(pricingResp.data.items)) {
+    adminPriceMap = new Map(pricingResp.data.items.map((entry) => [entry.item, Number(entry.price)]));
+  } else {
+    adminPriceMap = new Map();
+  }
+  renderAdminInventory(Array.isArray(inventoryResp.data.items) ? inventoryResp.data.items : []);
+};
+
+const renderFulfillmentOrders = (items) => {
+  if (!fulfillmentList) return;
+  if (!items.length) {
+    fulfillmentList.innerHTML = '<p class="small">No open fulfillment orders.</p>';
+    return;
+  }
+  fulfillmentList.innerHTML = items
+    .map((item) => {
+      const amount = Number(item.amountTotal || item.unitAmount || 0) / 100;
+      const canPack = item.status === "paid";
+      const canShip = item.status === "paid" || item.status === "packed";
+      const address = item.shippingAddress
+        ? `${item.shippingAddress.address1 || ""} ${item.shippingAddress.address2 || ""}, ${item.shippingAddress.city || ""}, ${item.shippingAddress.state || ""} ${item.shippingAddress.zip || ""}`.trim()
+        : "N/A";
+      const orderNum = formatOrderNumber(item.stripeSessionId);
+      return `
+        <article class="recent-card order-card reveal is-visible">
+          <p class="small"><strong>${escapeHtml(item.item || "Stonehorn Item")}</strong></p>
+          <p class="small">Order: ${escapeHtml(orderNum)}</p>
+          <p class="small">Amount: $${amount.toFixed(2)}</p>
+          <p class="small">Customer: ${escapeHtml(item.customerEmail || "N/A")}</p>
+          <p class="small">Ship To: ${escapeHtml(address)}</p>
+          <p class="small">Status: ${escapeHtml(item.status || "unknown")}</p>
+          ${
+            item.trackingNumber
+              ? `<p class="small">Tracking: ${escapeHtml(item.carrier || "")} ${escapeHtml(item.trackingNumber || "")}</p>`
+              : ""
+          }
+          <div class="hunter-gate-actions">
+            ${
+              canPack
+                ? `<button class="btn btn-sm fulfillment-action" data-action="pack" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Mark Packed</button>`
+                : ""
+            }
+            ${
+              canShip
+                ? `<button class="btn btn-ghost btn-sm fulfillment-action" data-action="ship" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Mark Shipped</button>`
+                : ""
+            }
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  fulfillmentList.querySelectorAll(".fulfillment-action").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const orderId = btn.getAttribute("data-id") || "";
+      const action = btn.getAttribute("data-action") || "";
+      if (!orderId || !action) return;
+
+      if (action === "pack") {
+        const { ok, data } = await jsonFetch(`/api/worker/orders/${encodeURIComponent(orderId)}/pack`, { method: "POST" });
+        if (!ok) {
+          if (workerStatus) workerStatus.textContent = data.error || "Could not mark packed.";
+          return;
+        }
+        if (workerStatus) workerStatus.textContent = "Order marked packed.";
+        await loadFulfillmentOrders();
+        return;
+      }
+
+      if (action === "ship") {
+        const carrier = prompt("Carrier (UPS, USPS, FedEx, etc):", "UPS");
+        if (carrier === null) return;
+        const trackingNumber = prompt("Tracking number:");
+        if (trackingNumber === null) return;
+        const fulfillmentNotes = prompt("Optional fulfillment note:", "") || "";
+        const { ok, data } = await jsonFetch(`/api/worker/orders/${encodeURIComponent(orderId)}/ship`, {
+          method: "POST",
+          body: JSON.stringify({
+            carrier: carrier.trim(),
+            trackingNumber: trackingNumber.trim(),
+            fulfillmentNotes: fulfillmentNotes.trim(),
+          }),
+        });
+        if (!ok) {
+          if (workerStatus) workerStatus.textContent = data.error || "Could not mark shipped.";
+          return;
+        }
+        if (workerStatus) workerStatus.textContent = "Order marked shipped.";
+        await loadFulfillmentOrders();
+      }
+    });
+  });
+};
+
+const loadFulfillmentOrders = async () => {
+  if (!fulfillmentList) return;
+  const { ok, data } = await jsonFetch("/api/worker/orders?status=open", { method: "GET" });
+  if (!ok) {
+    fulfillmentList.innerHTML = '<p class="small">Worker or admin login required to view fulfillment orders.</p>';
+    return;
+  }
+  renderFulfillmentOrders(Array.isArray(data.items) ? data.items : []);
+};
+
+if (adminOrdersSearch) {
+  adminOrdersSearch.addEventListener("input", () => {
+    renderFilteredAdminOrders();
+  });
+}
+
+if (adminLoginBtn && adminPassword) {
+  adminLoginBtn.addEventListener("click", async () => {
+    const email = (adminEmail?.value || "").trim();
+    const password = adminPassword.value;
+    const { ok, data } = await jsonFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    if (!ok) {
+      if (adminStatus) adminStatus.textContent = data.error || "Login failed.";
+      return;
+    }
+    if (data.role !== "admin") {
+      if (adminStatus) adminStatus.textContent = "Admin access required.";
+      return;
+    }
+    if (adminStatus) adminStatus.textContent = "Logged in.";
+    if (adminAuthBox) adminAuthBox.classList.add("hidden");
+    await loadAdminQueue();
+    await loadAdminOrders();
+  });
+}
+
+if (adminRefreshBtn) {
+  adminRefreshBtn.addEventListener("click", async () => {
+    await loadAdminQueue();
+  });
+}
+
+if (adminOrdersRefreshBtn) {
+  adminOrdersRefreshBtn.addEventListener("click", async () => {
+    await loadAdminOrders();
+  });
+}
+
+if (dropsRefreshBtn) {
+  dropsRefreshBtn.addEventListener("click", async () => {
+    await loadDropSubscribers();
+    if (dropsStatus) dropsStatus.textContent = "Subscriber list refreshed.";
+  });
+}
+
+if (dropsSendBtn) {
+  dropsSendBtn.addEventListener("click", async () => {
+    const subject = String(dropsSubject?.value || "").trim();
+    const message = String(dropsMessage?.value || "").trim();
+    if (!subject || !message) {
+      if (dropsStatus) dropsStatus.textContent = "Subject and message are required.";
+      return;
+    }
+    dropsSendBtn.disabled = true;
+    dropsSendBtn.textContent = "Sending...";
+    let imageDataUrl = "";
+    const photoFile = dropsPhoto?.files?.[0];
+    if (photoFile) {
+      if (!photoFile.type.startsWith("image/")) {
+        if (dropsStatus) dropsStatus.textContent = "Drop photo must be an image file.";
+        dropsSendBtn.disabled = false;
+        dropsSendBtn.textContent = "Send Update To All Subscribers";
+        return;
+      }
+      try {
+        imageDataUrl = String(await fileToDataUrl(photoFile));
+      } catch {
+        if (dropsStatus) dropsStatus.textContent = "Could not read image file.";
+        dropsSendBtn.disabled = false;
+        dropsSendBtn.textContent = "Send Update To All Subscribers";
+        return;
+      }
+    }
+    const { ok, data } = await jsonFetch("/api/admin/drops/send-update", {
+      method: "POST",
+      body: JSON.stringify({ subject, message, imageDataUrl }),
+    });
+    if (!ok) {
+      if (dropsStatus) dropsStatus.textContent = data.error || "Send failed.";
+      dropsSendBtn.disabled = false;
+      dropsSendBtn.textContent = "Send Update To All Subscribers";
+      return;
+    }
+    if (dropsStatus) dropsStatus.textContent = `Update sent. ${data.sent}/${data.total} delivered, ${data.failed} failed.`;
+    if (dropsPhoto) dropsPhoto.value = "";
+    dropsSendBtn.disabled = false;
+    dropsSendBtn.textContent = "Send Update To All Subscribers";
+  });
+}
+
+if (inventoryRefreshBtn) {
+  inventoryRefreshBtn.addEventListener("click", async () => {
+    await loadAdminInventory();
+    if (inventoryStatus) inventoryStatus.textContent = "Inventory refreshed.";
+  });
+}
+
+if (inventorySaveBtn) {
+  inventorySaveBtn.addEventListener("click", async () => {
+    if (!inventoryList) return;
+    const stockInputs = Array.from(inventoryList.querySelectorAll("input[data-item-stock]"));
+    const priceInputs = Array.from(inventoryList.querySelectorAll("input[data-item-price]"));
+    const inventoryPayload = stockInputs.map((input) => {
+      const item = String(input.getAttribute("data-item-stock") || "");
+      const raw = String(input.value || "").trim();
+      return {
+        item,
+        stock: raw === "" ? null : Number(raw),
+      };
+    });
+    const pricingPayload = priceInputs.map((input) => ({
+      item: String(input.getAttribute("data-item-price") || ""),
+      price: Number(String(input.value || "").trim()),
+    }));
+    inventorySaveBtn.disabled = true;
+    inventorySaveBtn.textContent = "Saving...";
+    const inventoryResp = await jsonFetch("/api/admin/inventory", {
+      method: "POST",
+      body: JSON.stringify({ items: inventoryPayload }),
+    });
+    if (!inventoryResp.ok) {
+      if (inventoryStatus) inventoryStatus.textContent = inventoryResp.data.error || "Could not save inventory.";
+      inventorySaveBtn.disabled = false;
+      inventorySaveBtn.textContent = "Save Inventory + Prices";
+      return;
+    }
+    const pricingResp = await jsonFetch("/api/admin/pricing", {
+      method: "POST",
+      body: JSON.stringify({ items: pricingPayload }),
+    });
+    if (!pricingResp.ok) {
+      if (inventoryStatus) inventoryStatus.textContent = pricingResp.data.error || "Inventory saved, but pricing failed.";
+      inventorySaveBtn.disabled = false;
+      inventorySaveBtn.textContent = "Save Inventory + Prices";
+      return;
+    }
+    adminPriceMap = new Map(
+      (Array.isArray(pricingResp.data.items) ? pricingResp.data.items : []).map((entry) => [entry.item, Number(entry.price)])
+    );
+    renderAdminInventory(Array.isArray(inventoryResp.data.items) ? inventoryResp.data.items : []);
+    if (inventoryStatus) inventoryStatus.textContent = "Inventory and pricing saved.";
+    await loadPublicInventory();
+    inventorySaveBtn.disabled = false;
+    inventorySaveBtn.textContent = "Save Inventory + Prices";
+  });
+}
+
+if (workerLoginBtn && workerPassword) {
+  workerLoginBtn.addEventListener("click", async () => {
+    const email = (workerEmail?.value || "").trim();
+    const password = workerPassword.value;
+    const { ok, data } = await jsonFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    if (!ok) {
+      if (workerStatus) workerStatus.textContent = data.error || "Login failed.";
+      return;
+    }
+    if (data.role !== "worker" && data.role !== "admin") {
+      if (workerStatus) workerStatus.textContent = "Worker or admin access required.";
+      return;
+    }
+    if (workerStatus) workerStatus.textContent = `Logged in as ${data.email || data.name || "staff"}.`;
+    if (workerAuthBox) workerAuthBox.classList.add("hidden");
+    await loadFulfillmentOrders();
+  });
+}
+
+if (workerRefreshBtn) {
+  workerRefreshBtn.addEventListener("click", async () => {
+    await loadFulfillmentOrders();
+  });
+}
+
+const initAdminPages = async () => {
+  if (!adminList && !adminOrdersList) return;
+  const me = await getAuthMe();
+  if (me.role === "admin") {
+    if (adminAuthBox) adminAuthBox.classList.add("hidden");
+    if (adminStatus) adminStatus.textContent = `Logged in as ${me.email || "admin"}.`;
+    if (adminEmail && !adminEmail.value) adminEmail.value = me.email || "";
+    await loadAdminQueue();
+    await loadAdminOrders();
+    await loadDropSubscribers();
+    await loadAdminInventory();
+  } else {
+    if (adminAuthBox) adminAuthBox.classList.remove("hidden");
+    if (adminStatus) adminStatus.textContent = "Admin login required for this page.";
+  }
+};
+
+const initFulfillmentPage = async () => {
+  if (!fulfillmentList) return;
+  const me = await getAuthMe();
+  if (me.role === "admin" || me.role === "worker") {
+    if (workerAuthBox) workerAuthBox.classList.add("hidden");
+    if (workerStatus) workerStatus.textContent = `Logged in as ${me.email || me.name || "staff"}.`;
+    if (workerEmail && !workerEmail.value) workerEmail.value = me.email || "";
+    await loadFulfillmentOrders();
+  } else {
+    if (workerAuthBox) workerAuthBox.classList.remove("hidden");
+    if (workerStatus) workerStatus.textContent = "Worker or admin login required for this page.";
+  }
+};
+
+if (loginForm && signupForm) {
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = loginForm.querySelector("#login-email")?.value || "";
+    const password = loginForm.querySelector("#login-password")?.value || "";
+    const { ok, data } = await jsonFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    if (!ok) {
+      if (loginStatus) loginStatus.textContent = data.error || "Login failed.";
+      return;
+    }
+    localStorage.setItem(CHECKOUT_PREF_KEY, loginSavePref?.checked ? "true" : "false");
+    if (loginStatus) loginStatus.textContent = "Login successful.";
+    window.location.href = data.role === "worker" ? "./fulfillment.html" : "./index.html";
+  });
+
+  signupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = signupForm.querySelector("#signup-name")?.value || "";
+    const email = signupForm.querySelector("#signup-email")?.value || "";
+    const password = signupForm.querySelector("#signup-password")?.value || "";
+    const { ok, data } = await jsonFetch("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ name, email, password }),
+    });
+    if (!ok) {
+      if (signupStatus) signupStatus.textContent = data.error || "Signup failed.";
+      return;
+    }
+    localStorage.setItem(CHECKOUT_PREF_KEY, signupSavePref?.checked ? "true" : "false");
+    if (signupStatus) signupStatus.textContent = "Account created.";
+    window.location.href = "./index.html";
+  });
+}
+
+if (accountGreeting) {
+  getAuthMe().then((me) => {
+    if (!me.loggedIn) {
+      accountGreeting.textContent = "You are not logged in.";
+      if (accountRole) accountRole.textContent = "Login to save checkout info.";
+      if (staffLinks) staffLinks.classList.add("hidden");
+      if (adminOnlyLinks) adminOnlyLinks.classList.add("hidden");
+      return;
+    }
+    accountGreeting.textContent = `Welcome, ${me.name || "Stonehorn member"}.`;
+    if (accountRole) accountRole.textContent = `Role: ${me.role}`;
+    if (accountLoginLink) accountLoginLink.classList.add("hidden");
+    if (staffLinks) {
+      if (me.role === "admin" || me.role === "worker") staffLinks.classList.remove("hidden");
+      else staffLinks.classList.add("hidden");
+    }
+    if (adminOnlyLinks) {
+      if (me.role === "admin") adminOnlyLinks.classList.remove("hidden");
+      else adminOnlyLinks.classList.add("hidden");
+    }
+  });
+}
+
+if (accountLogoutBtn) {
+  accountLogoutBtn.addEventListener("click", async () => {
+    await jsonFetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "./login.html";
+  });
+}
+
+if (checkoutForm && checkoutItem && checkoutPrice) {
+  const params = new URLSearchParams(window.location.search);
+  const itemParam = params.get("item") || "";
+  const priceParam = Number(params.get("price") || "0");
+  const returnTo = params.get("return_to") || "";
+  const entryPath = params.get("entry_path") || "";
+  const cart = getCart();
+  const isCartCheckout = !itemParam && cart.length > 0;
+
+  let item = itemParam || "Stonehorn Hat";
+  let price = Number.isFinite(priceParam) && priceParam > 0 ? priceParam : 42;
+
+  if (isCartCheckout) {
+    item = `${cart.reduce((sum, entry) => sum + entry.quantity, 0)} items`;
+    price = getCartTotal(cart);
+    if (checkoutCartSummary) {
+      checkoutCartSummary.classList.remove("hidden");
+      checkoutCartSummary.innerHTML = cart
+        .map((entry) => `${escapeHtml(entry.item)} x ${entry.quantity} - $${(entry.unitPrice * entry.quantity).toFixed(2)}`)
+        .join("<br />");
+    }
+    if (checkoutQty) {
+      checkoutQty.value = "1";
+      checkoutQty.disabled = true;
+    }
+  }
+
+  checkoutItem.value = item;
+  checkoutPrice.value = `$${price.toFixed(2)}`;
+
+  if (itemParam) {
+    jsonFetch("/api/pricing/public", { method: "GET" }).then(({ ok, data }) => {
+      if (!ok || !Array.isArray(data.items)) return;
+      const match = data.items.find((entry) => String(entry.item || "") === itemParam);
+      if (!match) return;
+      const nextPrice = Number(match.price || 0);
+      if (!Number.isFinite(nextPrice) || nextPrice <= 0) return;
+      price = nextPrice;
+      checkoutPrice.value = `$${price.toFixed(2)}`;
+    });
+  }
+
+  getAuthMe().then(async (me) => {
+    if (!me.loggedIn) {
+      if (checkoutStatus) checkoutStatus.textContent = "Tip: login to save checkout info for next time.";
+      return;
+    }
+    const profile = await getCheckoutProfile();
+    if (!profile) return;
+    if (checkoutName) checkoutName.value = profile.fullName || me.name || "";
+    if (checkoutEmail) checkoutEmail.value = profile.email || me.email || "";
+    if (checkoutAddress1) checkoutAddress1.value = profile.address1 || "";
+    if (checkoutAddress2) checkoutAddress2.value = profile.address2 || "";
+    if (checkoutCity) checkoutCity.value = profile.city || "";
+    if (checkoutState) checkoutState.value = profile.state || "";
+    if (checkoutZip) checkoutZip.value = profile.zip || "";
+    if (checkoutCountry) checkoutCountry.value = profile.country || "US";
+  });
+
+  checkoutForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = checkoutForm.querySelector("button");
+    if (!button) return;
+    const quantity = isCartCheckout ? 1 : Math.max(1, Math.min(10, Number(checkoutQty?.value || 1)));
+    button.textContent = "Redirecting...";
+    button.disabled = true;
+
+    const payload = {
+      item,
+      unitPrice: price,
+      quantity,
+      cartItems: isCartCheckout ? cart : [],
+      returnTo,
+      entryPath,
+      customerName: checkoutName?.value || "",
+      customerEmail: checkoutEmail?.value || "",
+      address1: checkoutAddress1?.value || "",
+      address2: checkoutAddress2?.value || "",
+      city: checkoutCity?.value || "",
+      state: checkoutState?.value || "",
+      zip: checkoutZip?.value || "",
+      country: checkoutCountry?.value || "US",
+    };
+
+    const me = await getAuthMe();
+    const savePref = localStorage.getItem(CHECKOUT_PREF_KEY) !== "false";
+    if (me.loggedIn && me.role === "user" && savePref) {
+      await saveCheckoutProfile({
+        fullName: payload.customerName,
+        email: payload.customerEmail,
+        address1: payload.address1,
+        address2: payload.address2,
+        city: payload.city,
+        state: payload.state,
+        zip: payload.zip,
+        country: payload.country,
+      });
+    }
+
+    const { ok, data } = await jsonFetch("/api/create-checkout-session", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (!ok || !data.url) {
+      button.textContent = "Continue To Payment";
+      button.disabled = false;
+      if (checkoutStatus) checkoutStatus.textContent = data.error || "Unable to start checkout right now.";
+      return;
+    }
+    if (isCartCheckout) {
+      sessionStorage.setItem("stonehorn_clear_cart_after_payment", "1");
+    }
+    window.location.href = data.url;
+  });
+}
+
+if (window.location.pathname.endsWith("/success.html") && checkoutStatus) {
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get("session_id");
+  const urlEntryToken = params.get("entry_token") || "";
+  const urlEntryPath = params.get("entry_path") || "Buying a hat";
+  if (successBragBtn) successBragBtn.classList.add("hidden");
+
+  if (successBragBtn && urlEntryToken) {
+    successBragBtn.href = `./bragging-board.html?from_checkout=1&entry_token=${encodeURIComponent(
+      urlEntryToken
+    )}&entry_path=${encodeURIComponent(urlEntryPath)}`;
+  }
+
+  if (!sessionId) {
+    checkoutStatus.textContent = "Payment completed. Confirmation email is on the way.";
+    if (successBragBtn && urlEntryToken) successBragBtn.classList.remove("hidden");
+  } else {
+    jsonFetch(`/api/checkout/session-status?session_id=${encodeURIComponent(sessionId)}`, {
+      method: "GET",
+    }).then(({ ok, data }) => {
+      if (!ok) {
+        checkoutStatus.textContent = "Payment received. We are finalizing your order.";
+        if (successBragBtn && urlEntryToken) successBragBtn.classList.remove("hidden");
+        return;
+      }
+      checkoutStatus.textContent = data.paid
+        ? `Payment confirmed${data.customerEmail ? ` for ${data.customerEmail}` : ""}.`
+        : "Payment is processing. Refresh in a moment.";
+
+      if (data.paid && sessionStorage.getItem("stonehorn_clear_cart_after_payment") === "1") {
+        saveCart([]);
+        updateCartCount();
+        sessionStorage.removeItem("stonehorn_clear_cart_after_payment");
+      }
+
+      if (data.paid && data.braggingEntryEligible && data.braggingEntryToken && successBragBtn) {
+        const path = data.braggingEntryPath || "Buying a hat";
+        successBragBtn.href = `./bragging-board.html?from_checkout=1&entry_token=${encodeURIComponent(
+          data.braggingEntryToken
+        )}&entry_path=${encodeURIComponent(path)}`;
+        successBragBtn.classList.remove("hidden");
+      } else if (data.paid && urlEntryToken && successBragBtn) {
+        successBragBtn.classList.remove("hidden");
+      } else if (data.paid && data.braggingEntryUsed) {
+        checkoutStatus.textContent += " Bragging Board entry already submitted for this purchase.";
+      }
+    });
+  }
+}
+
+loadPublicPricing();
+renderCart();
+loadPublicInventory();
+loadRecentBoard();
+initAdminPages();
+initFulfillmentPage();

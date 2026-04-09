@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stonehorn | Admin Review</title>
+    <meta name="description" content="Admin review queue for Stonehorn Bragging Board submissions." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="section">
+      <nav class="nav">
+        <a href="./index.html" class="brand-lockup" aria-label="Stonehorn home">
+          <img src="./archive-6.png" alt="Stonehorn logo" class="brand-logo" />
+          <p class="wordmark">STONEHORN</p>
+        </a>
+        <div class="nav-links">
+          <a href="./account.html" class="nav-tab">Account</a>
+          <a href="./admin-review.html" class="nav-tab is-active">Review Queue</a>
+          <a href="./admin-orders.html" class="nav-tab">Orders Dashboard</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section reveal">
+        <p class="eyebrow">Admin Queue</p>
+        <h2>Review hunter verification submissions.</h2>
+        <div class="board-form" id="admin-auth-box">
+          <label for="admin-email">Admin Email</label>
+          <input id="admin-email" type="email" placeholder="admin@stonehorn.local" />
+          <label for="admin-password">Admin Password</label>
+          <input id="admin-password" type="password" placeholder="Enter admin password" />
+          <div class="hunter-gate-actions">
+            <button class="btn btn-sm" id="admin-login-btn" type="button">Login</button>
+            <button class="btn btn-ghost btn-sm" id="admin-refresh-btn" type="button">Refresh Queue</button>
+          </div>
+          <p class="small" id="admin-status"></p>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div id="admin-list" class="recent-grid"></div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
