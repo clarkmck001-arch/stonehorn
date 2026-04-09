@@ -41,6 +41,8 @@ const adminOrdersSearch = document.querySelector("#admin-orders-search");
 const adminAuthBox = document.querySelector("#admin-auth-box");
 const workerLoginBtn = document.querySelector("#worker-login-btn");
 const workerRefreshBtn = document.querySelector("#worker-refresh-btn");
+const workerOrderFilter = document.querySelector("#worker-order-filter");
+const workerFilterCount = document.querySelector("#worker-filter-count");
 const workerEmail = document.querySelector("#worker-email");
 const workerPassword = document.querySelector("#worker-password");
 const workerStatus = document.querySelector("#worker-status");
@@ -907,6 +909,8 @@ const renderFulfillmentOrders = (items) => {
       if (!orderId || !action) return;
 
       if (action === "pack") {
+        const confirmed = window.confirm("Mark this order as packed?");
+        if (!confirmed) return;
         const { ok, data } = await jsonFetch(`/api/worker/orders/${encodeURIComponent(orderId)}/pack`, { method: "POST" });
         if (!ok) {
           if (workerStatus) workerStatus.textContent = data.error || "Could not mark packed.";
@@ -944,12 +948,39 @@ const renderFulfillmentOrders = (items) => {
 
 const loadFulfillmentOrders = async () => {
   if (!fulfillmentList) return;
-  const { ok, data } = await jsonFetch("/api/worker/orders?status=open", { method: "GET" });
+  const selectedStatus = String(workerOrderFilter?.value || "latest").trim().toLowerCase();
+  const allowed = new Set(["latest", "open", "paid", "packed", "shipped", "created", "cancelled", "all"]);
+  const status = allowed.has(selectedStatus) ? selectedStatus : "latest";
+  const apiStatus = status === "latest" ? "open" : status;
+  const { ok, data } = await jsonFetch(`/api/worker/orders?status=${encodeURIComponent(apiStatus)}`, { method: "GET" });
   if (!ok) {
     fulfillmentList.innerHTML = '<p class="small">Worker or admin login required to view fulfillment orders.</p>';
+    if (workerFilterCount) workerFilterCount.textContent = "";
     return;
   }
-  renderFulfillmentOrders(Array.isArray(data.items) ? data.items : []);
+  const allItems = Array.isArray(data.items) ? data.items : [];
+  const items = status === "latest" ? allItems.slice(0, 10) : allItems.slice(0, 20);
+  const statusLabel =
+    status === "latest"
+      ? "open"
+      : status;
+  if (workerFilterCount) {
+    const shownLimit = status === "latest" ? 10 : 20;
+    workerFilterCount.textContent = `Showing ${Math.min(items.length, shownLimit)} of ${allItems.length} ${statusLabel} order${
+      allItems.length === 1 ? "" : "s"
+    }.`;
+  }
+  if (!items.length) {
+    const label =
+      status === "latest"
+        ? "No recent open fulfillment orders."
+        : status === "open"
+          ? "No open fulfillment orders."
+        : `No ${status} orders found.`;
+    fulfillmentList.innerHTML = `<p class="small">${escapeHtml(label)}</p>`;
+    return;
+  }
+  renderFulfillmentOrders(items);
 };
 
 if (adminOrdersSearch) {
@@ -1126,6 +1157,12 @@ if (workerLoginBtn && workerPassword) {
 
 if (workerRefreshBtn) {
   workerRefreshBtn.addEventListener("click", async () => {
+    await loadFulfillmentOrders();
+  });
+}
+
+if (workerOrderFilter) {
+  workerOrderFilter.addEventListener("change", async () => {
     await loadFulfillmentOrders();
   });
 }

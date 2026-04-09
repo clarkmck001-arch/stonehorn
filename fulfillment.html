@@ -47,6 +47,20 @@
       </section>
 
       <section class="section reveal">
+        <div class="hunter-gate-actions" style="margin-bottom: 0.8rem">
+          <label for="worker-order-filter" class="small" style="align-self: center">Show:</label>
+          <select id="worker-order-filter">
+            <option value="latest">Latest 10 (Default)</option>
+            <option value="open">Open (Paid + Packed)</option>
+            <option value="paid">Paid (Needs Packing)</option>
+            <option value="packed">Packed (Ready To Ship)</option>
+            <option value="shipped">Shipped</option>
+            <option value="created">Created</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="all">All</option>
+          </select>
+          <p class="small" id="worker-filter-count"></p>
+        </div>
         <div id="fulfillment-list" class="recent-grid orders-grid"></div>
       </section>
     </main>
