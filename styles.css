@@ -781,14 +781,14 @@ h3 {
 
   .nav-links {
     width: 100%;
-    display: none;
+    display: none !important;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
     margin-top: 0.35rem;
   }
 
   .nav-links.is-open {
-    display: grid;
+    display: grid !important;
   }
 
   .nav-tab,
