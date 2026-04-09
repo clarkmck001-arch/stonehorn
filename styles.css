@@ -729,6 +729,25 @@ h3 {
 }
 
 @media (max-width: 960px) {
+  .nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .nav-links {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .nav-tab,
+  .nav .btn {
+    width: 100%;
+    text-align: center;
+  }
+
   .split,
   .values-grid,
   .hoodie-grid,
@@ -756,18 +775,30 @@ h3 {
     padding: 3rem 0;
   }
 
-  .nav {
-    align-items: flex-start;
-  }
-
   .nav-links {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 
   .brand-logo {
-    width: 124px;
-    height: 124px;
+    width: 96px;
+    height: 96px;
+  }
+
+  .wordmark {
+    font-size: 1.1rem;
+  }
+
+  .hero-content h1 {
+    font-size: clamp(1.9rem, 11vw, 2.6rem);
+    line-height: 1;
+  }
+
+  .lede {
+    font-size: 0.98rem;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
   }
 
   .nav .btn {
@@ -780,6 +811,20 @@ h3 {
 
   .events {
     grid-template-columns: 1fr;
+  }
+
+  .lineup-grid {
+    grid-template-columns: 1fr;
+    padding: 0.75rem;
+    gap: 0.8rem;
+  }
+
+  .hat-shot {
+    padding: 0.75rem 0.75rem 0.65rem;
+  }
+
+  .cart-row-main {
+    align-items: flex-start;
   }
 
   .join-form div {
