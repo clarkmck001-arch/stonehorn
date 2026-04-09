@@ -353,8 +353,10 @@ const applyInventoryToButtons = () => {
       const bItem = String(b.querySelector(".add-cart-btn")?.getAttribute("data-item") || "").trim();
       const aStock = publicInventoryMap.get(aItem);
       const bStock = publicInventoryMap.get(bItem);
-      const aInStock = !aStock || aStock.remaining === null || (aStock.inStock && Number(aStock.remaining || 0) > 0);
-      const bInStock = !bStock || bStock.remaining === null || (bStock.inStock && Number(bStock.remaining || 0) > 0);
+      const aBtnDisabled = Boolean(a.querySelector(".add-cart-btn")?.disabled);
+      const bBtnDisabled = Boolean(b.querySelector(".add-cart-btn")?.disabled);
+      const aInStock = !aBtnDisabled && (!aStock || aStock.remaining === null || (aStock.inStock && Number(aStock.remaining || 0) > 0));
+      const bInStock = !bBtnDisabled && (!bStock || bStock.remaining === null || (bStock.inStock && Number(bStock.remaining || 0) > 0));
       if (aInStock !== bInStock) return aInStock ? -1 : 1;
       return Number(a.dataset.baseOrder || 0) - Number(b.dataset.baseOrder || 0);
     });

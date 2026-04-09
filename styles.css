@@ -396,9 +396,8 @@ h3 {
   position: relative;
   border-radius: 12px;
   background: #ffffff;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   align-items: center;
   padding: 1rem 1rem 0.8rem;
   overflow: hidden;
@@ -434,13 +433,15 @@ h3 {
 }
 
 .hat-shot img {
-  width: auto;
-  max-width: 92%;
-  height: auto;
-  max-height: 72%;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
   object-fit: contain;
+  object-position: center 70%;
   position: relative;
   z-index: 1;
+  align-self: end;
   filter:
     saturate(1.06)
     contrast(1.04)
