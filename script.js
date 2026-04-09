@@ -89,13 +89,13 @@ let publicPriceMap = new Map();
 let adminPriceMap = new Map();
 const PRODUCT_IMAGE_MAP = {
   "Black Leather Patch Hat": "./IMG_7923.PNG",
-  "Embroidered Text Hat": "./hat-text-cream.png",
-  "Black Ibex Logo Hat": "./IMG_7924.PNG",
+  "Embroidered Text Hat": "./IMG_7935.jpg",
+  "Black Ibex Logo Hat": "./IMG_7934.PNG",
   "Blue Rope Hat": "./hat-blue-rope.jpg",
-  "Cream Badge Hat": "./hat-cream-badge.jpg",
+  "Cream Badge Hat": "./IMG_7928.jpg",
   "Cream Mountain Script Hat": "./IMG_7922.PNG",
   "Black Gold Ibex Hat": "./IMG_7921.PNG",
-  "Cream Backcountry Patch Hat": "./E687AD5D-0C5E-4A3B-81DA-5C65DB36D32F.PNG",
+  "Cream Backcountry Patch Hat": "./IMG_7936.PNG",
   "Black Forest Hoodie": "./archive-1.jpg",
   "Green Brush Hoodie": "./archive-2.jpg",
   "Earth Tone Hoodie": "./archive-3.jpg",
