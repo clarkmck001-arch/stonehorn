@@ -1165,6 +1165,9 @@ if (workerOrderFilter) {
   workerOrderFilter.addEventListener("change", async () => {
     await loadFulfillmentOrders();
   });
+  workerOrderFilter.addEventListener("input", async () => {
+    await loadFulfillmentOrders();
+  });
 }
 
 const initAdminPages = async () => {
