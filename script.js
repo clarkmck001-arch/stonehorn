@@ -5,6 +5,7 @@ const events = document.querySelectorAll(".event");
 
 const joinForm = document.querySelector(".join-form");
 const addCartButtons = document.querySelectorAll(".add-cart-btn");
+const lineupGrid = document.querySelector("#lineup-grid");
 const mobileNavToggle = document.querySelector("#mobile-nav-toggle");
 const mainNavLinks = document.querySelector("#main-nav-links");
 const cartCountEls = document.querySelectorAll("[data-cart-count]");
@@ -87,12 +88,13 @@ let publicInventoryMap = new Map();
 let publicPriceMap = new Map();
 let adminPriceMap = new Map();
 const PRODUCT_IMAGE_MAP = {
-  "Black Leather Patch Hat": "./hat-patch-black.png",
+  "Black Leather Patch Hat": "./IMG_7923.PNG",
   "Embroidered Text Hat": "./hat-text-cream.png",
-  "Black Ibex Logo Hat": "./hat-ibex-black.png",
+  "Black Ibex Logo Hat": "./IMG_7924.PNG",
   "Blue Rope Hat": "./hat-blue-rope.jpg",
   "Cream Badge Hat": "./hat-cream-badge.jpg",
-  "Black Gold Ibex Hat": "./hat-ibex-gold.jpg",
+  "Cream Mountain Script Hat": "./IMG_7922.PNG",
+  "Black Gold Ibex Hat": "./IMG_7921.PNG",
   "Cream Backcountry Patch Hat": "./E687AD5D-0C5E-4A3B-81DA-5C65DB36D32F.PNG",
   "Black Forest Hoodie": "./archive-1.jpg",
   "Green Brush Hoodie": "./archive-2.jpg",
@@ -340,6 +342,24 @@ const applyInventoryToButtons = () => {
       note.textContent = "";
     }
   });
+
+  if (lineupGrid) {
+    const hats = Array.from(lineupGrid.querySelectorAll(".hat-shot"));
+    hats.forEach((card, idx) => {
+      if (!card.dataset.baseOrder) card.dataset.baseOrder = String(idx);
+    });
+    hats.sort((a, b) => {
+      const aItem = String(a.querySelector(".add-cart-btn")?.getAttribute("data-item") || "").trim();
+      const bItem = String(b.querySelector(".add-cart-btn")?.getAttribute("data-item") || "").trim();
+      const aStock = publicInventoryMap.get(aItem);
+      const bStock = publicInventoryMap.get(bItem);
+      const aInStock = !aStock || aStock.remaining === null || (aStock.inStock && Number(aStock.remaining || 0) > 0);
+      const bInStock = !bStock || bStock.remaining === null || (bStock.inStock && Number(bStock.remaining || 0) > 0);
+      if (aInStock !== bInStock) return aInStock ? -1 : 1;
+      return Number(a.dataset.baseOrder || 0) - Number(b.dataset.baseOrder || 0);
+    });
+    hats.forEach((card) => lineupGrid.appendChild(card));
+  }
 };
 
 const loadPublicInventory = async () => {
