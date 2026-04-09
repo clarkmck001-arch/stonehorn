@@ -819,6 +819,43 @@ h3 {
   }
 }
 
+@media (hover: none) and (pointer: coarse) {
+  .nav {
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+  }
+
+  .brand-lockup {
+    margin-right: auto;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+    position: absolute;
+    right: 0;
+    top: 0.35rem;
+  }
+
+  .nav > .nav-links {
+    width: 100%;
+    display: none !important;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+  }
+
+  .nav > .nav-links.is-open {
+    display: grid !important;
+  }
+
+  .nav-tab,
+  .nav .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 @media (max-width: 640px) {
   .section {
     padding: 3rem 0;
