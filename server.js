@@ -1047,6 +1047,54 @@ async function handleApi(req, res, urlObj) {
       const paid = stripeSession.payment_status === "paid";
       const orders = readJson(ORDERS_FILE, []);
       const order = orders.find((o) => o.stripeSessionId === sessionId);
+      let orderUpdated = false;
+
+      if (paid && order) {
+        if (order.status !== "paid" && order.status !== "packed" && order.status !== "shipped") {
+          order.status = "paid";
+          orderUpdated = true;
+        }
+        if (!order.paidAt) {
+          order.paidAt = new Date().toISOString();
+          orderUpdated = true;
+        }
+        if (!order.amountTotal && stripeSession.amount_total) {
+          order.amountTotal = stripeSession.amount_total;
+          orderUpdated = true;
+        }
+        const sessionEmail = stripeSession.customer_details?.email || "";
+        if (sessionEmail && !order.customerEmail) {
+          order.customerEmail = sessionEmail;
+          orderUpdated = true;
+        }
+
+        if (!order.emailSentAt) {
+          const entryToken = order?.braggingEntry?.token || "";
+          const entryPath = encodeURIComponent(order?.braggingEntry?.entryPath || "Buying a hat");
+          const braggingEntryUrl = entryToken
+            ? `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&entry_token=${encodeURIComponent(entryToken)}&entry_path=${entryPath}`
+            : "";
+          const emailResult = await sendOrderConfirmationEmail({
+            to: order.customerEmail || sessionEmail,
+            item: order.item || "Stonehorn Item",
+            amountTotalCents: order.amountTotal || stripeSession.amount_total || 0,
+            orderId: order.stripeSessionId,
+            braggingEntryUrl,
+          });
+          if (emailResult.sent) {
+            order.emailSentAt = new Date().toISOString();
+            order.emailProviderId = emailResult.id || "";
+          } else {
+            order.emailError = emailResult.reason || emailResult.error || "Not sent";
+          }
+          orderUpdated = true;
+        }
+      }
+
+      if (orderUpdated) {
+        writeJson(ORDERS_FILE, orders);
+      }
+
       return json(res, 200, {
         id: stripeSession.id,
         paymentStatus: stripeSession.payment_status,
