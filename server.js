@@ -273,6 +273,12 @@ async function stripeRequest(method, pathname, params) {
 
 async function sendOrderConfirmationEmail({ to, item, amountTotalCents, orderId, braggingEntryUrl = "" }) {
   if (!RESEND_API_KEY || !ORDER_EMAIL_FROM || !to) {
+    console.warn("[email] Order confirmation skipped: missing config or recipient", {
+      hasResendKey: Boolean(RESEND_API_KEY),
+      hasFrom: Boolean(ORDER_EMAIL_FROM),
+      hasTo: Boolean(to),
+      orderId,
+    });
     return { sent: false, skipped: true, reason: "Email provider not configured." };
   }
 
@@ -319,8 +325,15 @@ async function sendOrderConfirmationEmail({ to, item, amountTotalCents, orderId,
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    console.error("[email] Order confirmation failed", {
+      orderId,
+      to,
+      status: response.status,
+      message: data?.message || "Email API failed.",
+    });
     return { sent: false, skipped: false, error: data?.message || "Email API failed." };
   }
+  console.info("[email] Order confirmation sent", { orderId, to, providerId: data.id || "" });
   return { sent: true, id: data.id || "" };
 }
 
