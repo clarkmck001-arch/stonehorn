@@ -76,6 +76,7 @@ const checkoutZip = document.querySelector("#checkout-zip");
 const checkoutCountry = document.querySelector("#checkout-country");
 const checkoutStatus = document.querySelector("#checkout-status");
 const successBragBtn = document.querySelector("#success-brag-btn");
+let appToastTimer = null;
 
 const CHECKOUT_PREF_KEY = "stonehorn_save_checkout_pref";
 const CART_KEY = "stonehorn_cart";
@@ -167,6 +168,24 @@ const escapeHtml = (value) =>
     return map[char] || char;
   });
 
+const showToast = (message) => {
+  const text = String(message || "").trim();
+  if (!text) return;
+  let toast = document.querySelector("#app-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "app-toast";
+    toast.className = "app-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add("is-visible");
+  if (appToastTimer) window.clearTimeout(appToastTimer);
+  appToastTimer = window.setTimeout(() => {
+    toast.classList.remove("is-visible");
+  }, 1800);
+};
+
 const formatOrderNumber = (stripeSessionId) => {
   const raw = String(stripeSessionId || "").trim();
   if (!raw) return "N/A";
@@ -199,10 +218,12 @@ const bindAddToCartButton = (btn) => {
     const currentQty = existing ? existing.quantity : 0;
     const nextQty = Math.min(10, currentQty + 1);
     if (stock && stock.remaining !== null && nextQty > Number(stock.remaining || 0)) {
+      const msg =
+        Number(stock.remaining || 0) > 0 ? `Only ${stock.remaining} left for ${item}.` : `${item} is sold out.`;
       if (cartStatus) {
-        cartStatus.textContent =
-          Number(stock.remaining || 0) > 0 ? `Only ${stock.remaining} left for ${item}.` : `${item} is sold out.`;
+        cartStatus.textContent = msg;
       }
+      showToast(msg);
       applyInventoryToButtons();
       return;
     }
@@ -210,7 +231,9 @@ const bindAddToCartButton = (btn) => {
     else cart.push({ item, unitPrice, quantity: 1, image });
     saveCart(cart);
     renderCart();
-    if (cartStatus) cartStatus.textContent = `${item} added to cart.`;
+    const addedMsg = `${item} added to cart.`;
+    if (cartStatus) cartStatus.textContent = addedMsg;
+    showToast(addedMsg);
   });
 };
 
@@ -459,6 +482,7 @@ if (cartClearBtn) {
     saveCart([]);
     renderCart();
     if (cartStatus) cartStatus.textContent = "Cart cleared.";
+    showToast("Cart cleared.");
   });
 }
 
