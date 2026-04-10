@@ -317,7 +317,7 @@ async function sendOrderConfirmationEmail({ to, item, amountTotalCents, orderId,
   const guaranteedBraggingUrl =
     String(braggingEntryUrl || "").trim() ||
     `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&session_id=${encodeURIComponent(orderId || "")}`;
-  const subject = `Stonehorn Order Confirmed - ${item}`;
+  const subject = `Stonehorn Order ${shortOrderId} Confirmed - ${item}`;
   const logoUrl = getEmailLogoSrc();
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.45;color:#1a1a1a">
@@ -330,6 +330,7 @@ async function sendOrderConfirmationEmail({ to, item, amountTotalCents, orderId,
       <p><strong>Total:</strong> $${amount}</p>
       <p><strong>Order ID:</strong> ${shortOrderId}</p>
       <p><a href="${guaranteedBraggingUrl}" style="color:#111;font-weight:700">Submit your Bragging Board entry</a></p>
+      <p style="word-break:break-all"><strong>Bragging Board link:</strong> ${guaranteedBraggingUrl}</p>
       <p>We will send shipping updates as soon as your order is packed.</p>
     </div>
   `;
