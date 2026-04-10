@@ -602,7 +602,7 @@ async function handleApi(req, res, urlObj) {
         const entryPath = encodeURIComponent(order?.braggingEntry?.entryPath || "Buying a hat");
         const braggingEntryUrl = entryToken
           ? `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&entry_token=${encodeURIComponent(entryToken)}&entry_path=${entryPath}`
-          : "";
+          : `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&session_id=${encodeURIComponent(order.stripeSessionId)}`;
         const emailResult = await sendOrderConfirmationEmail({
           to: order.customerEmail || "",
           item: order.item || "Stonehorn Item",
@@ -1166,7 +1166,7 @@ async function handleApi(req, res, urlObj) {
           const entryPath = encodeURIComponent(order?.braggingEntry?.entryPath || "Buying a hat");
           const braggingEntryUrl = entryToken
             ? `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&entry_token=${encodeURIComponent(entryToken)}&entry_path=${entryPath}`
-            : "";
+            : `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&session_id=${encodeURIComponent(order.stripeSessionId)}`;
           const emailResult = await sendOrderConfirmationEmail({
             to: order.customerEmail || sessionEmail,
             item: order.item || "Stonehorn Item",

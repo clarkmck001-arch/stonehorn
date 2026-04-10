@@ -569,6 +569,7 @@ if (boardForm) {
   const params = new URLSearchParams(window.location.search);
   const fromCheckout = params.get("from_checkout") === "1";
   const entryToken = params.get("entry_token") || "";
+  const entrySessionId = params.get("session_id") || "";
   const entryPath = params.get("entry_path") || "";
   const entry = boardForm.querySelector("#entry-path");
   const tokenInput = boardForm.querySelector("#entry-token");
@@ -578,7 +579,33 @@ if (boardForm) {
 
   if (fromCheckout) {
     if (!entryToken) {
-      if (boardStatus) boardStatus.textContent = "No valid entry token was found. Use your order confirmation link.";
+      if (!entrySessionId) {
+        if (boardStatus) boardStatus.textContent = "No valid entry token was found. Use your order confirmation link.";
+      } else {
+        jsonFetch(`/api/checkout/session-status?session_id=${encodeURIComponent(entrySessionId)}`, { method: "GET" }).then(
+          ({ ok, data }) => {
+            if (!ok || !data?.paid) {
+              if (boardStatus) boardStatus.textContent = "Payment is still processing. Try this link again in a minute.";
+              return;
+            }
+            if (!data.braggingEntryEligible || !data.braggingEntryToken) {
+              if (boardStatus) {
+                boardStatus.textContent =
+                  data.braggingEntryUsed
+                    ? "Entry already submitted for this purchase."
+                    : "This purchase does not currently have an active entry token.";
+              }
+              return;
+            }
+            if (tokenInput) tokenInput.value = data.braggingEntryToken;
+            if (entry && data.braggingEntryPath) entry.value = data.braggingEntryPath;
+            if (boardStatus) {
+              boardStatus.textContent = "Checkout complete. You can submit one Bragging Board entry for this purchase.";
+            }
+            setBoardEntryAndFocus(data.braggingEntryPath || entryPath || "Buying a hat");
+          }
+        );
+      }
     } else {
       jsonFetch(`/api/bragging/entry-access?token=${encodeURIComponent(entryToken)}`, { method: "GET" }).then(
         ({ ok, data }) => {
