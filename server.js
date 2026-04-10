@@ -35,6 +35,7 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const ORDER_EMAIL_FROM = process.env.ORDER_EMAIL_FROM || "";
 const ORDER_EMAIL_REPLY_TO = process.env.ORDER_EMAIL_REPLY_TO || "";
+const LOW_STOCK_ALERT_TO = sanitizeEmail(process.env.LOW_STOCK_ALERT_TO || process.env.STONEHORN_ADMIN_EMAIL || "");
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || `http://${HOST}:${PORT}`;
 const EMAIL_LOGO_URL = process.env.EMAIL_LOGO_URL || `${PUBLIC_BASE_URL}/archive-6.png`;
 const STORAGE_MODE = String(process.env.STONEHORN_STORAGE || "sqlite")
@@ -50,6 +51,7 @@ const USERS_FILE = path.join(DATA_DIR, "users.json");
 const DROP_SUBSCRIBERS_FILE = path.join(DATA_DIR, "drop-subscribers.json");
 const INVENTORY_FILE = path.join(DATA_DIR, "inventory.json");
 const PRICES_FILE = path.join(DATA_DIR, "prices.json");
+const LOW_STOCK_ALERTS_FILE = path.join(DATA_DIR, "low-stock-alerts.json");
 const SQLITE_FILE = path.join(DATA_DIR, "stonehorn.db");
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMITS = {
@@ -132,6 +134,7 @@ ensureJsonFile(USERS_FILE, []);
 ensureJsonFile(DROP_SUBSCRIBERS_FILE, []);
 ensureJsonFile(INVENTORY_FILE, {});
 ensureJsonFile(PRICES_FILE, {});
+ensureJsonFile(LOW_STOCK_ALERTS_FILE, {});
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -652,6 +655,129 @@ async function sendDropUpdateEmail({ to, subject, message, imageUrl = "" }) {
   return { sent: true, id: data.id || "" };
 }
 
+async function sendLowStockAlertEmail({ to, items }) {
+  if (!RESEND_API_KEY || !ORDER_EMAIL_FROM || !to) {
+    return { sent: false, skipped: true, reason: "Email provider not configured." };
+  }
+  if (!Array.isArray(items) || !items.length) {
+    return { sent: false, skipped: true, reason: "No low stock items." };
+  }
+  const logoUrl = getEmailLogoSrc();
+  const rows = items
+    .map((entry) => `<li><strong>${escapeHtml(entry.item)}</strong> (${escapeHtml(entry.sku)}) - ${entry.remaining} left</li>`)
+    .join("");
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.45;color:#1a1a1a">
+      <p style="margin:0 0 14px">
+        <img src="${logoUrl}" alt="Stonehorn" style="width:96px;height:96px;object-fit:contain;display:block" />
+      </p>
+      <h2 style="margin:0 0 10px">Stonehorn low stock alert</h2>
+      <p>The following products are at 5 or fewer units remaining:</p>
+      <ul>${rows}</ul>
+      <p><a href="${PUBLIC_BASE_URL}/admin-orders.html" style="color:#111;font-weight:700">Open admin orders</a></p>
+    </div>
+  `;
+  const text = [
+    "Stonehorn low stock alert",
+    "The following products are at 5 or fewer units remaining:",
+    ...items.map((entry) => `- ${entry.item} (${entry.sku}) - ${entry.remaining} left`),
+    `Admin: ${PUBLIC_BASE_URL}/admin-orders.html`,
+  ].join("\n");
+  const payload = {
+    from: ORDER_EMAIL_FROM,
+    to: [to],
+    subject: `Stonehorn low stock alert (${items.length})`,
+    html,
+    text,
+  };
+  if (ORDER_EMAIL_REPLY_TO) {
+    payload.reply_to = ORDER_EMAIL_REPLY_TO;
+  }
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return { sent: false, error: data?.message || "Email API failed." };
+  }
+  return { sent: true, id: data.id || "" };
+}
+
+async function processLowStockAlerts() {
+  const to = sanitizeEmail(LOW_STOCK_ALERT_TO);
+  if (!to) return;
+  const inventory = getInventorySnapshot();
+  const states = readJson(LOW_STOCK_ALERTS_FILE, {});
+  const lowItems = inventory
+    .filter((entry) => entry.stock !== null && entry.remaining !== null && entry.remaining > 0 && entry.remaining <= 5)
+    .map((entry) => ({
+      item: entry.item,
+      sku: getSkuForItem(entry.item),
+      remaining: Number(entry.remaining),
+    }));
+
+  let changed = false;
+  const toAlert = [];
+  lowItems.forEach((entry) => {
+    const prev = states[entry.item] || {};
+    const isActive = Boolean(prev.active);
+    if (!isActive) {
+      toAlert.push(entry);
+    }
+    states[entry.item] = {
+      active: true,
+      remaining: entry.remaining,
+      updatedAt: new Date().toISOString(),
+      lastAlertAt: isActive ? prev.lastAlertAt || null : prev.lastAlertAt || null,
+      lastEmailId: prev.lastEmailId || "",
+    };
+    changed = true;
+  });
+
+  inventory.forEach((entry) => {
+    if (entry.stock === null || entry.remaining === null) return;
+    if (entry.remaining > 5) {
+      const prev = states[entry.item];
+      if (prev?.active) {
+        states[entry.item] = {
+          ...prev,
+          active: false,
+          remaining: entry.remaining,
+          updatedAt: new Date().toISOString(),
+        };
+        changed = true;
+      }
+    }
+  });
+
+  if (toAlert.length) {
+    const emailResult = await sendLowStockAlertEmail({ to, items: toAlert });
+    if (emailResult.sent) {
+      const now = new Date().toISOString();
+      toAlert.forEach((entry) => {
+        states[entry.item] = {
+          ...(states[entry.item] || {}),
+          active: true,
+          remaining: entry.remaining,
+          lastAlertAt: now,
+          lastEmailId: emailResult.id || "",
+          updatedAt: now,
+        };
+      });
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    writeJson(LOW_STOCK_ALERTS_FILE, states);
+  }
+}
+
 async function sendShippingUpdateEmail({ to, item, orderId, carrier, trackingNumber }) {
   if (!RESEND_API_KEY || !ORDER_EMAIL_FROM || !to) {
     return { sent: false, skipped: true, reason: "Email provider not configured." };
@@ -922,6 +1048,7 @@ async function handleApi(req, res, urlObj) {
         }
       }
       writeJson(ORDERS_FILE, orders);
+      await processLowStockAlerts();
     }
     return text(res, 200, "ok");
   }
@@ -1523,6 +1650,9 @@ async function handleApi(req, res, urlObj) {
 
       if (orderUpdated) {
         writeJson(ORDERS_FILE, orders);
+        if (paid) {
+          await processLowStockAlerts();
+        }
       }
 
       return json(res, 200, {

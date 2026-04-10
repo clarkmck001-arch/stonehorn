@@ -275,6 +275,77 @@ const getOrderSkuSummary = (order) => {
   return Array.from(skuSet).join(", ");
 };
 
+const formatAddressForDisplay = (order) => {
+  const address = order?.shippingAddress;
+  if (!address) return "N/A";
+  return `${address.address1 || ""} ${address.address2 || ""}, ${address.city || ""}, ${address.state || ""} ${address.zip || ""}`
+    .replace(/\s+,/g, ",")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+};
+
+const buildLabelCopyText = (order) => {
+  const orderNum = formatOrderNumber(order?.stripeSessionId);
+  const customer = String(order?.customerName || "").trim() || String(order?.customerEmail || "").trim() || "Customer";
+  const address = formatAddressForDisplay(order);
+  const items = formatOrderItemsLabel(order);
+  const skus = getOrderSkuSummary(order);
+  const dateRaw = order?.paidAt || order?.createdAt || "";
+  const orderDate = dateRaw ? new Date(dateRaw).toLocaleString() : "N/A";
+  return [
+    `Order: ${orderNum}`,
+    `Order Date: ${orderDate}`,
+    `Customer: ${customer}`,
+    `Email: ${order?.customerEmail || "N/A"}`,
+    `Ship To: ${address}`,
+    `Items: ${items}`,
+    `SKU: ${skus || "N/A"}`,
+  ].join("\n");
+};
+
+const printPackingSlip = (order) => {
+  const orderNum = formatOrderNumber(order?.stripeSessionId);
+  const customer = String(order?.customerName || "").trim() || "Customer";
+  const email = String(order?.customerEmail || "").trim() || "N/A";
+  const address = formatAddressForDisplay(order);
+  const items = formatOrderItemsLabel(order);
+  const skus = getOrderSkuSummary(order);
+  const dateRaw = order?.paidAt || order?.createdAt || "";
+  const orderDate = dateRaw ? new Date(dateRaw).toLocaleString() : "N/A";
+  const printWindow = window.open("", "_blank", "width=780,height=900");
+  if (!printWindow) return;
+  printWindow.document.write(`<!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Packing Slip ${escapeHtml(orderNum)}</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+      h1 { margin: 0 0 16px; }
+      p { margin: 8px 0; }
+      .line { border-top: 1px solid #ddd; margin: 14px 0; }
+      .label { font-weight: 700; }
+      .mono { font-family: Menlo, Monaco, Consolas, monospace; }
+    </style>
+  </head>
+  <body>
+    <h1>Stonehorn Packing Slip</h1>
+    <p><span class="label">Order:</span> <span class="mono">${escapeHtml(orderNum)}</span></p>
+    <p><span class="label">Order Date:</span> ${escapeHtml(orderDate)}</p>
+    <div class="line"></div>
+    <p><span class="label">Customer:</span> ${escapeHtml(customer)}</p>
+    <p><span class="label">Email:</span> ${escapeHtml(email)}</p>
+    <p><span class="label">Ship To:</span> ${escapeHtml(address)}</p>
+    <div class="line"></div>
+    <p><span class="label">Items:</span> ${escapeHtml(items)}</p>
+    <p><span class="label">SKU:</span> <span class="mono">${escapeHtml(skus || "N/A")}</span></p>
+  </body>
+  </html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+};
+
 const fileToDataUrl = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1045,6 +1116,8 @@ const renderFulfillmentOrders = (items) => {
                 ? `<button class="btn btn-ghost btn-sm fulfillment-action" data-action="ship" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Mark Shipped</button>`
                 : ""
             }
+            <button class="btn btn-ghost btn-sm fulfillment-action" data-action="copy-label" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Copy For Label</button>
+            <button class="btn btn-ghost btn-sm fulfillment-action" data-action="print-slip" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Print Slip</button>
           </div>
         </article>
       `;
@@ -1090,6 +1163,27 @@ const renderFulfillmentOrders = (items) => {
         }
         if (workerStatus) workerStatus.textContent = "Order marked shipped.";
         await loadFulfillmentOrders();
+        return;
+      }
+
+      if (action === "copy-label") {
+        const target = items.find((entry) => String(entry.stripeSessionId || "") === String(orderId));
+        if (!target) return;
+        const text = buildLabelCopyText(target);
+        try {
+          await navigator.clipboard.writeText(text);
+          if (workerStatus) workerStatus.textContent = "Order copied for shipping label.";
+        } catch {
+          if (workerStatus) workerStatus.textContent = "Could not copy to clipboard.";
+        }
+        return;
+      }
+
+      if (action === "print-slip") {
+        const target = items.find((entry) => String(entry.stripeSessionId || "") === String(orderId));
+        if (!target) return;
+        printPackingSlip(target);
+        if (workerStatus) workerStatus.textContent = "Packing slip opened for print.";
       }
     });
   });
