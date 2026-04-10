@@ -421,12 +421,21 @@ async function sendOrderConfirmationEmail({ to, item, amountTotalCents, orderId,
       <p>We will send shipping updates as soon as your order is packed.</p>
     </div>
   `;
+  const text = [
+    "Thank you for your order.",
+    `Item: ${item}`,
+    `Total: $${amount}`,
+    `Order ID: ${shortOrderId}`,
+    `Submit your Bragging Board entry: ${guaranteedBraggingUrl}`,
+    "We will send shipping updates as soon as your order is packed.",
+  ].join("\n");
 
   const payload = {
     from: ORDER_EMAIL_FROM,
     to: [to],
     subject,
     html,
+    text,
   };
   if (ORDER_EMAIL_REPLY_TO) {
     payload.reply_to = ORDER_EMAIL_REPLY_TO;
