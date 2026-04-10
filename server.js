@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { URL } = require("url");
+const { DatabaseSync } = require("node:sqlite");
 
 function loadEnvFile() {
   const envPath = path.join(__dirname, ".env");
@@ -36,6 +37,9 @@ const ORDER_EMAIL_FROM = process.env.ORDER_EMAIL_FROM || "";
 const ORDER_EMAIL_REPLY_TO = process.env.ORDER_EMAIL_REPLY_TO || "";
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || `http://${HOST}:${PORT}`;
 const EMAIL_LOGO_URL = process.env.EMAIL_LOGO_URL || `${PUBLIC_BASE_URL}/archive-6.png`;
+const STORAGE_MODE = String(process.env.STONEHORN_STORAGE || "sqlite")
+  .trim()
+  .toLowerCase();
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
 const UPLOAD_DIR = path.join(ROOT, "uploads");
@@ -46,6 +50,9 @@ const USERS_FILE = path.join(DATA_DIR, "users.json");
 const DROP_SUBSCRIBERS_FILE = path.join(DATA_DIR, "drop-subscribers.json");
 const INVENTORY_FILE = path.join(DATA_DIR, "inventory.json");
 const PRICES_FILE = path.join(DATA_DIR, "prices.json");
+const SQLITE_FILE = path.join(DATA_DIR, "stonehorn.db");
+
+let storageDb = null;
 
 const PRODUCT_CATALOG = [
   "Black Leather Patch Hat",
@@ -81,6 +88,7 @@ const DEFAULT_PRICES = {
 
 ensureDir(DATA_DIR);
 ensureDir(UPLOAD_DIR);
+initStorage();
 ensureJsonFile(SUBMISSIONS_FILE, []);
 ensureJsonFile(SESSIONS_FILE, {});
 ensureJsonFile(ORDERS_FILE, []);
@@ -95,13 +103,87 @@ function ensureDir(dir) {
   }
 }
 
+function useSqliteStorage() {
+  return STORAGE_MODE === "sqlite";
+}
+
+function initStorage() {
+  if (!useSqliteStorage()) return;
+  storageDb = new DatabaseSync(SQLITE_FILE);
+  storageDb.exec(`
+    CREATE TABLE IF NOT EXISTS json_store (
+      store_key TEXT PRIMARY KEY,
+      json_value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+}
+
+function getStoreKey(filePath) {
+  return `json:${path.basename(String(filePath || ""))}`;
+}
+
+function sqliteReadValue(storeKey) {
+  if (!storageDb) return null;
+  const row = storageDb.prepare("SELECT json_value FROM json_store WHERE store_key = ?").get(storeKey);
+  if (!row || typeof row.json_value !== "string") return null;
+  return row.json_value;
+}
+
+function sqliteWriteValue(storeKey, value) {
+  if (!storageDb) return;
+  storageDb
+    .prepare(
+      `INSERT INTO json_store (store_key, json_value, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(store_key) DO UPDATE SET
+         json_value = excluded.json_value,
+         updated_at = excluded.updated_at`
+    )
+    .run(storeKey, value, new Date().toISOString());
+}
+
 function ensureJsonFile(filePath, fallbackData) {
+  if (useSqliteStorage()) {
+    const storeKey = getStoreKey(filePath);
+    const existing = sqliteReadValue(storeKey);
+    if (existing !== null) return;
+    let seed = fallbackData;
+    if (fs.existsSync(filePath)) {
+      try {
+        seed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      } catch {
+        seed = fallbackData;
+      }
+    }
+    sqliteWriteValue(storeKey, JSON.stringify(seed));
+    return;
+  }
   if (!fs.existsSync(filePath)) {
     fs.writeFileSync(filePath, JSON.stringify(fallbackData, null, 2));
   }
 }
 
 function readJson(filePath, fallbackData) {
+  if (useSqliteStorage()) {
+    const storeKey = getStoreKey(filePath);
+    const raw = sqliteReadValue(storeKey);
+    if (raw === null) {
+      ensureJsonFile(filePath, fallbackData);
+      const seeded = sqliteReadValue(storeKey);
+      if (seeded === null) return fallbackData;
+      try {
+        return JSON.parse(seeded);
+      } catch {
+        return fallbackData;
+      }
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return fallbackData;
+    }
+  }
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch {
@@ -110,6 +192,11 @@ function readJson(filePath, fallbackData) {
 }
 
 function writeJson(filePath, data) {
+  if (useSqliteStorage()) {
+    const storeKey = getStoreKey(filePath);
+    sqliteWriteValue(storeKey, JSON.stringify(data));
+    return;
+  }
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
