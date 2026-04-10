@@ -246,6 +246,26 @@ function formatOrderNumber(stripeSessionId) {
   return `SH-${tail || "N/A"}`;
 }
 
+function getBraggingEntryFromStripeSession(sessionObj) {
+  const metadataToken = String(sessionObj?.metadata?.braggingEntryToken || "").trim();
+  const metadataPath =
+    String(sessionObj?.metadata?.braggingEntryPath || "Buying a hat").trim().slice(0, 80) || "Buying a hat";
+  if (metadataToken) {
+    return { token: metadataToken, path: metadataPath };
+  }
+
+  const successUrl = String(sessionObj?.success_url || "").trim();
+  if (!successUrl) return { token: "", path: "Buying a hat" };
+  try {
+    const parsed = new URL(successUrl);
+    const token = String(parsed.searchParams.get("entry_token") || "").trim();
+    const path = String(parsed.searchParams.get("entry_path") || "Buying a hat").trim().slice(0, 80) || "Buying a hat";
+    return { token, path };
+  } catch {
+    return { token: "", path: "Buying a hat" };
+  }
+}
+
 function verifyStripeWebhookSignature(payload, signatureHeader, secret) {
   if (!secret) return false;
   const { t, v1 } = parseStripeSignature(signatureHeader);
@@ -536,8 +556,9 @@ async function handleApi(req, res, urlObj) {
     if (event.type === "checkout.session.completed") {
       const sessionObj = event.data.object;
       const orders = readJson(ORDERS_FILE, []);
-      const metaToken = String(sessionObj?.metadata?.braggingEntryToken || "").trim();
-      const metaPath = String(sessionObj?.metadata?.braggingEntryPath || "Buying a hat").trim().slice(0, 80) || "Buying a hat";
+      const entryFromSession = getBraggingEntryFromStripeSession(sessionObj);
+      const metaToken = entryFromSession.token;
+      const metaPath = entryFromSession.path;
       const existing = orders.find((o) => o.stripeSessionId === sessionObj.id);
       if (existing) {
         existing.status = "paid";
@@ -1106,9 +1127,9 @@ async function handleApi(req, res, urlObj) {
       const orders = readJson(ORDERS_FILE, []);
       const order = orders.find((o) => o.stripeSessionId === sessionId);
       let orderUpdated = false;
-      const metadataToken = String(stripeSession?.metadata?.braggingEntryToken || "").trim();
-      const metadataPath =
-        String(stripeSession?.metadata?.braggingEntryPath || "Buying a hat").trim().slice(0, 80) || "Buying a hat";
+      const entryFromSession = getBraggingEntryFromStripeSession(stripeSession);
+      const metadataToken = entryFromSession.token;
+      const metadataPath = entryFromSession.path;
 
       if (paid && order) {
         if (order.status !== "paid" && order.status !== "packed" && order.status !== "shipped") {
