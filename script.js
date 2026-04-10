@@ -585,16 +585,21 @@ const loadPublicPricing = async () => {
 const loadSiteAnnouncement = async () => {
   if (!siteAnnouncement || !siteAnnouncementText) {
     if (window.location.pathname.endsWith("/index.html") || window.location.pathname === "/") {
-      const main = document.querySelector("main");
-      if (main) {
-        const section = document.createElement("section");
-        section.className = "section announcement-bar hidden";
+      const heroContent = document.querySelector(".hero-content");
+      if (heroContent) {
+        const section = document.createElement("div");
+        section.className = "announcement-hero hidden";
         section.id = "site-announcement";
         section.setAttribute("aria-live", "polite");
         const text = document.createElement("p");
         text.id = "site-announcement-text";
         section.appendChild(text);
-        main.insertBefore(section, main.firstChild);
+        const anchor = heroContent.querySelector("h1");
+        if (anchor && anchor.parentNode) {
+          anchor.insertAdjacentElement("afterend", section);
+        } else {
+          heroContent.insertBefore(section, heroContent.firstChild);
+        }
         siteAnnouncement = section;
         siteAnnouncementText = text;
       }

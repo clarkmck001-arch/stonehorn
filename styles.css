@@ -740,19 +740,16 @@ h3 {
   font-size: 1rem;
 }
 
-.announcement-bar {
-  padding-top: 1rem;
-  padding-bottom: 0;
+.announcement-hero {
+  margin: 0.65rem 0 0.5rem;
 }
 
-.announcement-bar p {
+.announcement-hero p {
   margin: 0;
-  border: 1px solid var(--ink);
-  background: linear-gradient(120deg, rgba(17, 17, 17, 0.95), rgba(39, 86, 70, 0.95));
-  color: #fff;
+  color: #b3261e;
   font-weight: 700;
+  font-size: 0.98rem;
   letter-spacing: 0.01em;
-  padding: 0.75rem 0.9rem;
 }
 
 .footer {
