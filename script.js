@@ -31,6 +31,11 @@ const dropsSubject = document.querySelector("#drops-subject");
 const dropsMessage = document.querySelector("#drops-message");
 const dropsPhoto = document.querySelector("#drops-photo");
 const dropsStatus = document.querySelector("#drops-status");
+const announcementEnabled = document.querySelector("#announcement-enabled");
+const announcementMessage = document.querySelector("#announcement-message");
+const announcementSaveBtn = document.querySelector("#announcement-save-btn");
+const announcementRefreshBtn = document.querySelector("#announcement-refresh-btn");
+const announcementStatus = document.querySelector("#announcement-status");
 const inventoryList = document.querySelector("#inventory-list");
 const inventoryRefreshBtn = document.querySelector("#inventory-refresh-btn");
 const inventorySaveBtn = document.querySelector("#inventory-save-btn");
@@ -81,6 +86,8 @@ const checkoutZip = document.querySelector("#checkout-zip");
 const checkoutCountry = document.querySelector("#checkout-country");
 const checkoutStatus = document.querySelector("#checkout-status");
 const successBragBtn = document.querySelector("#success-brag-btn");
+const siteAnnouncement = document.querySelector("#site-announcement");
+const siteAnnouncementText = document.querySelector("#site-announcement-text");
 let appToastTimer = null;
 
 const CHECKOUT_PREF_KEY = "stonehorn_save_checkout_pref";
@@ -575,6 +582,21 @@ const loadPublicPricing = async () => {
   }
 };
 
+const loadSiteAnnouncement = async () => {
+  if (!siteAnnouncement || !siteAnnouncementText) return;
+  const { ok, data } = await jsonFetch("/api/announcement", { method: "GET" });
+  if (!ok) return;
+  const enabled = Boolean(data.enabled);
+  const message = String(data.message || "").trim();
+  if (!enabled || !message) {
+    siteAnnouncement.classList.add("hidden");
+    siteAnnouncementText.textContent = "";
+    return;
+  }
+  siteAnnouncementText.textContent = message;
+  siteAnnouncement.classList.remove("hidden");
+};
+
 const getAuthMe = async () => {
   const { ok, data } = await jsonFetch("/api/auth/me", { method: "GET" });
   if (!ok) return { loggedIn: false, role: "guest", name: "", email: "" };
@@ -1020,6 +1042,21 @@ const loadDropSubscribers = async () => {
   dropsCount.textContent = `${items.length} subscriber${items.length === 1 ? "" : "s"}.`;
 };
 
+const loadAdminAnnouncement = async () => {
+  if (!announcementEnabled || !announcementMessage) return;
+  const { ok, data } = await jsonFetch("/api/admin/announcement", { method: "GET" });
+  if (!ok) {
+    if (announcementStatus) announcementStatus.textContent = "Admin login required to load announcement.";
+    return;
+  }
+  announcementEnabled.checked = Boolean(data.enabled);
+  announcementMessage.value = String(data.message || "");
+  if (announcementStatus) {
+    const stamp = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : "Not set";
+    announcementStatus.textContent = `Current announcement loaded. Last updated: ${stamp}`;
+  }
+};
+
 const renderAdminInventory = (items) => {
   if (!inventoryList) return;
   if (!items.length) {
@@ -1252,6 +1289,9 @@ if (adminLoginBtn && adminPassword) {
     if (adminAuthBox) adminAuthBox.classList.add("hidden");
     await loadAdminQueue();
     await loadAdminOrders();
+    await loadDropSubscribers();
+    await loadAdminAnnouncement();
+    await loadAdminInventory();
   });
 }
 
@@ -1316,6 +1356,38 @@ if (dropsSendBtn) {
     if (dropsPhoto) dropsPhoto.value = "";
     dropsSendBtn.disabled = false;
     dropsSendBtn.textContent = "Send Update To All Subscribers";
+  });
+}
+
+if (announcementRefreshBtn) {
+  announcementRefreshBtn.addEventListener("click", async () => {
+    await loadAdminAnnouncement();
+  });
+}
+
+if (announcementSaveBtn) {
+  announcementSaveBtn.addEventListener("click", async () => {
+    const enabled = Boolean(announcementEnabled?.checked);
+    const message = String(announcementMessage?.value || "").trim();
+    if (enabled && !message) {
+      if (announcementStatus) announcementStatus.textContent = "Message is required when announcement is enabled.";
+      return;
+    }
+    announcementSaveBtn.disabled = true;
+    announcementSaveBtn.textContent = "Saving...";
+    const { ok, data } = await jsonFetch("/api/admin/announcement", {
+      method: "POST",
+      body: JSON.stringify({ enabled, message }),
+    });
+    if (!ok) {
+      if (announcementStatus) announcementStatus.textContent = data.error || "Could not save announcement.";
+      announcementSaveBtn.disabled = false;
+      announcementSaveBtn.textContent = "Save Announcement";
+      return;
+    }
+    if (announcementStatus) announcementStatus.textContent = enabled ? "Announcement saved and enabled." : "Announcement saved and hidden.";
+    announcementSaveBtn.disabled = false;
+    announcementSaveBtn.textContent = "Save Announcement";
   });
 }
 
@@ -1423,6 +1495,7 @@ const initAdminPages = async () => {
     await loadAdminQueue();
     await loadAdminOrders();
     await loadDropSubscribers();
+    await loadAdminAnnouncement();
     await loadAdminInventory();
   } else {
     if (adminAuthBox) adminAuthBox.classList.remove("hidden");
@@ -1695,3 +1768,4 @@ loadPublicInventory();
 loadRecentBoard();
 initAdminPages();
 initFulfillmentPage();
+loadSiteAnnouncement();

@@ -52,6 +52,7 @@ const DROP_SUBSCRIBERS_FILE = path.join(DATA_DIR, "drop-subscribers.json");
 const INVENTORY_FILE = path.join(DATA_DIR, "inventory.json");
 const PRICES_FILE = path.join(DATA_DIR, "prices.json");
 const LOW_STOCK_ALERTS_FILE = path.join(DATA_DIR, "low-stock-alerts.json");
+const ANNOUNCEMENT_FILE = path.join(DATA_DIR, "announcement.json");
 const SQLITE_FILE = path.join(DATA_DIR, "stonehorn.db");
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMITS = {
@@ -135,6 +136,12 @@ ensureJsonFile(DROP_SUBSCRIBERS_FILE, []);
 ensureJsonFile(INVENTORY_FILE, {});
 ensureJsonFile(PRICES_FILE, {});
 ensureJsonFile(LOW_STOCK_ALERTS_FILE, {});
+ensureJsonFile(ANNOUNCEMENT_FILE, {
+  enabled: false,
+  message: "",
+  updatedAt: null,
+  updatedBy: "",
+});
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -317,6 +324,21 @@ function getPriceMap() {
     }
   });
   return merged;
+}
+
+function getAnnouncement() {
+  const raw = readJson(ANNOUNCEMENT_FILE, {
+    enabled: false,
+    message: "",
+    updatedAt: null,
+    updatedBy: "",
+  });
+  return {
+    enabled: Boolean(raw.enabled),
+    message: String(raw.message || "").trim().slice(0, 280),
+    updatedAt: raw.updatedAt || null,
+    updatedBy: String(raw.updatedBy || "").trim().slice(0, 120),
+  };
 }
 
 function parseCookies(header = "") {
@@ -1396,6 +1418,10 @@ async function handleApi(req, res, urlObj) {
     return json(res, 200, { items });
   }
 
+  if (req.method === "GET" && urlObj.pathname === "/api/announcement") {
+    return json(res, 200, getAnnouncement());
+  }
+
   if (req.method === "GET" && urlObj.pathname === "/api/shop/hat-checkout") {
     if (!session.verified) {
       return json(res, 403, { error: "Hunter verification required." });
@@ -1890,6 +1916,32 @@ async function handleApi(req, res, urlObj) {
         createdAt: entry.createdAt,
       })),
     });
+  }
+
+  if (req.method === "GET" && urlObj.pathname === "/api/admin/announcement") {
+    return json(res, 200, getAnnouncement());
+  }
+
+  if (req.method === "POST" && urlObj.pathname === "/api/admin/announcement") {
+    let data;
+    try {
+      data = JSON.parse(await readBody(req));
+    } catch {
+      return json(res, 400, { error: "Invalid JSON body" });
+    }
+    const enabled = Boolean(data.enabled);
+    const message = String(data.message || "").trim().slice(0, 280);
+    if (enabled && !message) {
+      return json(res, 400, { error: "Announcement message is required when enabled." });
+    }
+    const next = {
+      enabled,
+      message,
+      updatedAt: new Date().toISOString(),
+      updatedBy: session.email || "admin",
+    };
+    writeJson(ANNOUNCEMENT_FILE, next);
+    return json(res, 200, { ok: true, announcement: next });
   }
 
   if (req.method === "POST" && urlObj.pathname === "/api/admin/drops/send-update") {

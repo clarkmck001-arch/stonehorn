@@ -740,6 +740,21 @@ h3 {
   font-size: 1rem;
 }
 
+.announcement-bar {
+  padding-top: 1rem;
+  padding-bottom: 0;
+}
+
+.announcement-bar p {
+  margin: 0;
+  border: 1px solid var(--ink);
+  background: linear-gradient(120deg, rgba(17, 17, 17, 0.95), rgba(39, 86, 70, 0.95));
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 0.75rem 0.9rem;
+}
+
 .footer {
   width: min(1100px, calc(100% - 2rem));
   margin: 0 auto;
@@ -772,6 +787,17 @@ h3 {
   font-weight: 700;
   font-size: 0.82rem;
   padding: 0.35rem 0.6rem;
+}
+
+.footer-links a:visited {
+  color: var(--ink);
+}
+
+.footer-links a:hover,
+.footer-links a:focus-visible {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
 }
 
 .reveal {

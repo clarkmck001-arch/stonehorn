@@ -83,6 +83,29 @@
       </section>
 
       <section class="section reveal">
+        <p class="eyebrow">Homepage Announcement</p>
+        <h2>Set the top banner for shoppers.</h2>
+        <div class="board-form">
+          <label class="small" for="announcement-enabled">
+            <input id="announcement-enabled" type="checkbox" />
+            Show announcement on storefront
+          </label>
+          <label for="announcement-message">Announcement message</label>
+          <textarea
+            id="announcement-message"
+            rows="3"
+            maxlength="280"
+            placeholder="Example: New drop Friday 8 PM MT. Limited stock."
+          ></textarea>
+          <div class="hunter-gate-actions">
+            <button class="btn btn-sm" id="announcement-save-btn" type="button">Save Announcement</button>
+            <button class="btn btn-ghost btn-sm" id="announcement-refresh-btn" type="button">Refresh</button>
+          </div>
+          <p class="small" id="announcement-status"></p>
+        </div>
+      </section>
+
+      <section class="section reveal">
         <p class="eyebrow">Inventory Control</p>
         <h2>Manage stock and pricing in one place.</h2>
         <div class="board-form">
@@ -111,6 +134,6 @@
       </nav>
     </footer>
 
-    <script src="./script.js?v=20260410d"></script>
+    <script src="./script.js?v=20260410e"></script>
   </body>
 </html>
