@@ -594,9 +594,9 @@ const loadSiteAnnouncement = async () => {
         const text = document.createElement("p");
         text.id = "site-announcement-text";
         section.appendChild(text);
-        const anchor = heroContent.querySelector("h1");
-        if (anchor && anchor.parentNode) {
-          anchor.insertAdjacentElement("afterend", section);
+        const quoteRow = heroContent.querySelector(".hero-quote-row");
+        if (quoteRow && quoteRow.parentNode) {
+          quoteRow.appendChild(section);
         } else {
           heroContent.insertBefore(section, heroContent.firstChild);
         }
