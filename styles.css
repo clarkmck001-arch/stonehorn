@@ -746,8 +746,32 @@ h3 {
   padding: 2rem 0 3rem;
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
   color: var(--muted);
   border-top: 1px solid var(--line);
+}
+
+.footer p {
+  margin: 0.2rem 0;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.footer-links a {
+  border: 1px solid var(--line);
+  background: #f6f0e4;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.6rem;
 }
 
 .reveal {
@@ -978,6 +1002,10 @@ h3 {
   .footer {
     flex-direction: column;
     gap: 0.45rem;
+  }
+
+  .footer-links {
+    justify-content: flex-start;
   }
 
   .app-toast {
