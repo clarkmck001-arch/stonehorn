@@ -526,12 +526,24 @@ async function handleApi(req, res, urlObj) {
     if (event.type === "checkout.session.completed") {
       const sessionObj = event.data.object;
       const orders = readJson(ORDERS_FILE, []);
+      const metaToken = String(sessionObj?.metadata?.braggingEntryToken || "").trim();
+      const metaPath = String(sessionObj?.metadata?.braggingEntryPath || "Buying a hat").trim().slice(0, 80) || "Buying a hat";
       const existing = orders.find((o) => o.stripeSessionId === sessionObj.id);
       if (existing) {
         existing.status = "paid";
         existing.paidAt = new Date().toISOString();
         existing.amountTotal = sessionObj.amount_total || existing.amountTotal || 0;
         existing.customerEmail = sessionObj.customer_details?.email || existing.customerEmail || "";
+        if (!existing.braggingEntry && metaToken) {
+          existing.braggingEntry = {
+            token: metaToken,
+            eligible: true,
+            used: false,
+            entryPath: metaPath,
+            usedAt: null,
+            submissionId: null,
+          };
+        }
       } else {
         orders.push({
           stripeSessionId: sessionObj.id,
@@ -540,6 +552,16 @@ async function handleApi(req, res, urlObj) {
           item: sessionObj?.metadata?.item || "Stonehorn Item",
           amountTotal: sessionObj.amount_total || 0,
           customerEmail: sessionObj.customer_details?.email || "",
+          braggingEntry: metaToken
+            ? {
+                token: metaToken,
+                eligible: true,
+                used: false,
+                entryPath: metaPath,
+                usedAt: null,
+                submissionId: null,
+              }
+            : null,
         });
       }
 
@@ -765,6 +787,15 @@ async function handleApi(req, res, urlObj) {
       return json(res, 400, { error: "Payment must be completed before entry submission." });
     }
     if (!order.braggingEntry?.eligible || order.braggingEntry?.used) {
+      return json(res, 400, { error: "This purchase token has already been used." });
+    }
+    const alreadySubmitted = submissions.some(
+      (s) => s.entryToken === entryToken || (order.stripeSessionId && s.orderId === order.stripeSessionId)
+    );
+    if (alreadySubmitted) {
+      order.braggingEntry.used = true;
+      if (!order.braggingEntry.usedAt) order.braggingEntry.usedAt = new Date().toISOString();
+      writeJson(ORDERS_FILE, orders);
       return json(res, 400, { error: "This purchase token has already been used." });
     }
 
@@ -1005,6 +1036,8 @@ async function handleApi(req, res, urlObj) {
         "metadata[state]": shippingAddress.state,
         "metadata[zip]": shippingAddress.zip,
         "metadata[country]": shippingAddress.country,
+        "metadata[braggingEntryToken]": entryToken,
+        "metadata[braggingEntryPath]": entryPath || "Buying a hat",
       };
       normalizedItems.forEach((entry, index) => {
         stripeParams[`line_items[${index}][quantity]`] = String(entry.quantity);
@@ -1063,6 +1096,9 @@ async function handleApi(req, res, urlObj) {
       const orders = readJson(ORDERS_FILE, []);
       const order = orders.find((o) => o.stripeSessionId === sessionId);
       let orderUpdated = false;
+      const metadataToken = String(stripeSession?.metadata?.braggingEntryToken || "").trim();
+      const metadataPath =
+        String(stripeSession?.metadata?.braggingEntryPath || "Buying a hat").trim().slice(0, 80) || "Buying a hat";
 
       if (paid && order) {
         if (order.status !== "paid" && order.status !== "packed" && order.status !== "shipped") {
@@ -1080,6 +1116,17 @@ async function handleApi(req, res, urlObj) {
         const sessionEmail = stripeSession.customer_details?.email || "";
         if (sessionEmail && !order.customerEmail) {
           order.customerEmail = sessionEmail;
+          orderUpdated = true;
+        }
+        if (!order.braggingEntry && metadataToken) {
+          order.braggingEntry = {
+            token: metadataToken,
+            eligible: true,
+            used: false,
+            entryPath: metadataPath,
+            usedAt: null,
+            submissionId: null,
+          };
           orderUpdated = true;
         }
 

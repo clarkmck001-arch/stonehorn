@@ -1449,7 +1449,7 @@ if (window.location.pathname.endsWith("/success.html") && checkoutStatus) {
           data.braggingEntryToken
         )}&entry_path=${encodeURIComponent(path)}`;
         successBragBtn.classList.remove("hidden");
-      } else if (data.paid && urlEntryToken && successBragBtn) {
+      } else if (data.paid && !data.braggingEntryUsed && urlEntryToken && successBragBtn) {
         successBragBtn.classList.remove("hidden");
       } else if (data.paid && data.braggingEntryUsed) {
         checkoutStatus.textContent += " Bragging Board entry already submitted for this purchase.";
