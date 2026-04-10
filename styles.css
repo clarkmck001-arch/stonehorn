@@ -632,6 +632,7 @@ h3 {
   padding: 1rem;
   display: grid;
   gap: 0.45rem;
+  min-width: 0;
 }
 
 .board-form input,
@@ -641,6 +642,8 @@ h3 {
   background: #ffffff;
   padding: 0.7rem;
   font: inherit;
+  width: 100%;
+  max-width: 100%;
 }
 
 .cart-panel {
@@ -948,6 +951,24 @@ h3 {
 
   .join-form div {
     flex-direction: column;
+  }
+
+  .brag-board {
+    overflow-x: hidden;
+  }
+
+  .board-copy,
+  #board-status,
+  .board-option,
+  .board-form,
+  .board-form label,
+  .board-form input,
+  .board-form textarea,
+  .board-form select,
+  .calendar-callout {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    min-width: 0;
   }
 
   .inventory-row {

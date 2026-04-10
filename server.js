@@ -238,6 +238,14 @@ function parseStripeSignature(header = "") {
   return out;
 }
 
+function formatOrderNumber(stripeSessionId) {
+  const raw = String(stripeSessionId || "").trim();
+  if (!raw) return "N/A";
+  const compact = raw.replace(/^cs_(test_|live_)?/i, "");
+  const tail = compact.slice(-8).toUpperCase();
+  return `SH-${tail || "N/A"}`;
+}
+
 function verifyStripeWebhookSignature(payload, signatureHeader, secret) {
   if (!secret) return false;
   const { t, v1 } = parseStripeSignature(signatureHeader);
@@ -285,6 +293,7 @@ async function sendOrderConfirmationEmail({ to, item, amountTotalCents, orderId,
   }
 
   const amount = (Number(amountTotalCents || 0) / 100).toFixed(2);
+  const shortOrderId = formatOrderNumber(orderId);
   const subject = `Stonehorn Order Confirmed - ${item}`;
   const logoUrl = getEmailLogoSrc();
   const html = `
@@ -296,7 +305,7 @@ async function sendOrderConfirmationEmail({ to, item, amountTotalCents, orderId,
       <p>Your Stonehorn payment was confirmed.</p>
       <p><strong>Item:</strong> ${item}</p>
       <p><strong>Total:</strong> $${amount}</p>
-      <p><strong>Order ID:</strong> ${orderId}</p>
+      <p><strong>Order ID:</strong> ${shortOrderId}</p>
       ${
         braggingEntryUrl
           ? `<p><a href="${braggingEntryUrl}" style="color:#111;font-weight:700">Submit your Bragging Board entry</a></p>`
@@ -391,6 +400,7 @@ async function sendShippingUpdateEmail({ to, item, orderId, carrier, trackingNum
     return { sent: false, skipped: true, reason: "Email provider not configured." };
   }
 
+  const shortOrderId = formatOrderNumber(orderId);
   const trackingUrl = trackingNumber
     ? `https://www.google.com/search?q=${encodeURIComponent(`${carrier} ${trackingNumber}`)}`
     : "";
@@ -398,7 +408,7 @@ async function sendShippingUpdateEmail({ to, item, orderId, carrier, trackingNum
     <div style="font-family:Arial,sans-serif;line-height:1.45;color:#1a1a1a">
       <h2 style="margin:0 0 10px">Your Stonehorn order has shipped.</h2>
       <p><strong>Item:</strong> ${escapeHtml(item || "Stonehorn Item")}</p>
-      <p><strong>Order ID:</strong> ${escapeHtml(orderId || "")}</p>
+      <p><strong>Order ID:</strong> ${escapeHtml(shortOrderId)}</p>
       <p><strong>Carrier:</strong> ${escapeHtml(carrier || "N/A")}</p>
       <p><strong>Tracking:</strong> ${escapeHtml(trackingNumber || "N/A")}</p>
       ${trackingUrl ? `<p><a href="${trackingUrl}" style="color:#111;font-weight:700">Track your shipment</a></p>` : ""}
