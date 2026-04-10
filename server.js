@@ -1083,6 +1083,27 @@ function sendStatic(reqPath, res) {
   fs.createReadStream(filePath).pipe(res);
 }
 
+function sendUploadedFile(reqPath, res) {
+  const filename = path.basename(String(reqPath || ""));
+  const filePath = path.join(UPLOAD_DIR, filename);
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    text(res, 404, "Not found");
+    return;
+  }
+  const ext = path.extname(filePath).toLowerCase();
+  const types = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+  };
+  res.writeHead(200, {
+    "Content-Type": types[ext] || "application/octet-stream",
+    "Cache-Control": "public, max-age=604800",
+  });
+  fs.createReadStream(filePath).pipe(res);
+}
+
 function getClientIp(req) {
   const forwarded = String(req.headers["x-forwarded-for"] || "")
     .split(",")
@@ -1963,7 +1984,11 @@ async function handleApi(req, res, urlObj) {
   }
 
   if (req.method === "GET" && urlObj.pathname === "/api/admin/submissions") {
-    return json(res, 200, { items: submissions });
+    const pending = submissions
+      .filter((entry) => (entry.status || "pending") === "pending")
+      .slice()
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return json(res, 200, { items: pending });
   }
 
   if (req.method === "GET" && urlObj.pathname === "/api/admin/orders") {
@@ -2242,7 +2267,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (urlObj.pathname.startsWith("/uploads/")) {
-      return sendStatic(urlObj.pathname, res);
+      return sendUploadedFile(urlObj.pathname, res);
     }
 
     return sendStatic(urlObj.pathname, res);
