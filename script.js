@@ -3,6 +3,8 @@ const counterEls = document.querySelectorAll("[data-counter]");
 const chips = document.querySelectorAll(".chip");
 const events = document.querySelectorAll(".event");
 
+document.documentElement.classList.add("reveal-ready");
+
 const joinForm = document.querySelector(".join-form");
 const addCartButtons = document.querySelectorAll(".add-cart-btn");
 const lineupGrid = document.querySelector("#lineup-grid");
