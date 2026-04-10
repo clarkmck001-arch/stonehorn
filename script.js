@@ -157,16 +157,29 @@ chips.forEach((chip) => {
 
 const jsonFetch = async (url, options = {}) => {
   try {
+    const timeoutMs = Number(options.timeoutMs || 12000);
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    let timeoutId = null;
+    if (controller && timeoutMs > 0) {
+      timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    }
     const response = await fetch(url, {
       headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      signal: controller ? controller.signal : undefined,
       ...options,
     });
+    if (timeoutId) window.clearTimeout(timeoutId);
     const data = await response.json().catch(() => ({}));
     return { ok: response.ok, status: response.status, data };
   } catch {
     return { ok: false, status: 0, data: { error: "Cannot reach Stonehorn server. Restart the app server." } };
   }
 };
+
+const wait = (ms) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 
 const escapeHtml = (value) =>
   String(value || "").replace(/[&<>"']/g, (char) => {
@@ -198,6 +211,34 @@ const formatOrderNumber = (stripeSessionId) => {
   const compact = raw.replace(/^cs_(test_|live_)?/i, "");
   const tail = compact.slice(-8).toUpperCase();
   return `SH-${tail || "N/A"}`;
+};
+
+const isGenericItemsLabel = (value) => {
+  const label = String(value || "").trim().toLowerCase();
+  if (!label) return false;
+  return /^\d+\s+items?$/.test(label) || label === "stonehorn item";
+};
+
+const formatOrderItemsLabel = (order) => {
+  if (Array.isArray(order?.cartItems) && order.cartItems.length) {
+    const normalized = order.cartItems
+      .map((entry) => {
+        const name = String(entry?.item || "").trim();
+        const quantity = Math.max(1, Number(entry?.quantity || 1));
+        if (!name) return "";
+        if (isGenericItemsLabel(name)) return "";
+        return quantity > 1 ? `${quantity}x ${name}` : name;
+      })
+      .filter(Boolean);
+    if (normalized.length) {
+      return normalized.join(", ");
+    }
+  }
+  const itemList = String(order?.itemList || "").trim();
+  if (itemList && !isGenericItemsLabel(itemList)) return itemList;
+  const fallback = String(order?.item || "Stonehorn Item").trim() || "Stonehorn Item";
+  if (isGenericItemsLabel(fallback)) return "Stonehorn Order";
+  return fallback;
 };
 
 const fileToDataUrl = (file) =>
@@ -367,10 +408,17 @@ const applyInventoryToButtons = () => {
 };
 
 const loadPublicInventory = async () => {
-  const { ok, data } = await jsonFetch("/api/inventory/public", { method: "GET" });
-  if (!ok || !Array.isArray(data.items)) return;
-  publicInventoryMap = new Map(data.items.map((entry) => [entry.item, entry]));
-  applyInventoryToButtons();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { ok, data } = await jsonFetch("/api/inventory/public", { method: "GET", timeoutMs: 8000 });
+    if (ok && Array.isArray(data.items)) {
+      publicInventoryMap = new Map(data.items.map((entry) => [entry.item, entry]));
+      applyInventoryToButtons();
+      return;
+    }
+    if (attempt === 0) {
+      await wait(300);
+    }
+  }
 };
 
 const applyPublicPricing = () => {
@@ -409,10 +457,17 @@ const applyPublicPricing = () => {
 };
 
 const loadPublicPricing = async () => {
-  const { ok, data } = await jsonFetch("/api/pricing/public", { method: "GET" });
-  if (!ok || !Array.isArray(data.items)) return;
-  publicPriceMap = new Map(data.items.map((entry) => [entry.item, Number(entry.price)]));
-  applyPublicPricing();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { ok, data } = await jsonFetch("/api/pricing/public", { method: "GET", timeoutMs: 8000 });
+    if (ok && Array.isArray(data.items)) {
+      publicPriceMap = new Map(data.items.map((entry) => [entry.item, Number(entry.price)]));
+      applyPublicPricing();
+      return;
+    }
+    if (attempt === 0) {
+      await wait(300);
+    }
+  }
 };
 
 const getAuthMe = async () => {
@@ -785,6 +840,7 @@ const renderAdminOrders = (items) => {
       const paidDate = item.paidAt ? new Date(item.paidAt).toLocaleDateString() : "-";
       const emailState = item.emailSentAt ? "Sent" : item.emailError ? "Error" : "Pending";
       const orderNum = formatOrderNumber(item.stripeSessionId);
+      const itemSummary = formatOrderItemsLabel(item);
       const fulfillmentState =
         item.status === "shipped"
           ? "Shipped"
@@ -806,7 +862,7 @@ const renderAdminOrders = (items) => {
           : "";
       return `
       <article class="recent-card order-card reveal is-visible">
-        <p class="small"><strong>${item.item || "Stonehorn Item"}</strong></p>
+        <p class="small"><strong>${escapeHtml(itemSummary)}</strong></p>
         <p class="small">Order: ${orderNum}</p>
         <p class="small">Amount: $${amount.toFixed(2)}</p>
         <p class="small">Email: ${item.customerEmail || "N/A"}</p>
@@ -919,14 +975,18 @@ const renderFulfillmentOrders = (items) => {
       const amount = Number(item.amountTotal || item.unitAmount || 0) / 100;
       const canPack = item.status === "paid";
       const canShip = item.status === "paid" || item.status === "packed";
+      const orderDateRaw = item.paidAt || item.createdAt || "";
+      const orderDate = orderDateRaw ? new Date(orderDateRaw).toLocaleString() : "N/A";
+      const itemSummary = formatOrderItemsLabel(item);
       const address = item.shippingAddress
         ? `${item.shippingAddress.address1 || ""} ${item.shippingAddress.address2 || ""}, ${item.shippingAddress.city || ""}, ${item.shippingAddress.state || ""} ${item.shippingAddress.zip || ""}`.trim()
         : "N/A";
       const orderNum = formatOrderNumber(item.stripeSessionId);
       return `
         <article class="recent-card order-card reveal is-visible">
-          <p class="small"><strong>${escapeHtml(item.item || "Stonehorn Item")}</strong></p>
+          <p class="small"><strong>${escapeHtml(itemSummary)}</strong></p>
           <p class="small">Order: ${escapeHtml(orderNum)}</p>
+          <p class="small">Order Date: ${escapeHtml(orderDate)}</p>
           <p class="small">Amount: $${amount.toFixed(2)}</p>
           <p class="small">Customer: ${escapeHtml(item.customerEmail || "N/A")}</p>
           <p class="small">Ship To: ${escapeHtml(address)}</p>
@@ -1382,6 +1442,7 @@ if (checkoutForm && checkoutItem && checkoutPrice) {
     event.preventDefault();
     const button = checkoutForm.querySelector("button");
     if (!button) return;
+    const checkoutCart = isCartCheckout ? getCart() : [];
     const quantity = isCartCheckout ? 1 : Math.max(1, Math.min(10, Number(checkoutQty?.value || 1)));
     button.textContent = "Redirecting...";
     button.disabled = true;
@@ -1390,7 +1451,18 @@ if (checkoutForm && checkoutItem && checkoutPrice) {
       item,
       unitPrice: price,
       quantity,
-      cartItems: isCartCheckout ? cart : [],
+      cartItems: isCartCheckout ? checkoutCart : [],
+      itemList: isCartCheckout
+        ? checkoutCart
+            .map((entry) => {
+              const name = String(entry?.item || "").trim();
+              const qty = Math.max(1, Number(entry?.quantity || 1));
+              if (!name) return "";
+              return qty > 1 ? `${qty}x ${name}` : name;
+            })
+            .filter(Boolean)
+            .join(", ")
+        : "",
       returnTo,
       entryPath,
       customerName: checkoutName?.value || "",

@@ -4,6 +4,9 @@
   "private": true,
   "description": "Stonehorn product site with hunter verification gate",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "backup": "bash scripts/backup.sh",
+    "backup:cron:install": "bash scripts/install-backup-cron.sh",
+    "backup:cron:remove": "bash scripts/remove-backup-cron.sh"
   }
 }

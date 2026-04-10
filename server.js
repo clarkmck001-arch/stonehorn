@@ -41,8 +41,8 @@ const STORAGE_MODE = String(process.env.STONEHORN_STORAGE || "sqlite")
   .trim()
   .toLowerCase();
 const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, "data");
-const UPLOAD_DIR = path.join(ROOT, "uploads");
+const DATA_DIR = path.resolve(process.env.STONEHORN_DATA_DIR || path.join(ROOT, "data"));
+const UPLOAD_DIR = path.resolve(process.env.STONEHORN_UPLOAD_DIR || path.join(ROOT, "uploads"));
 const SUBMISSIONS_FILE = path.join(DATA_DIR, "submissions.json");
 const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
 const ORDERS_FILE = path.join(DATA_DIR, "orders.json");
@@ -51,6 +51,26 @@ const DROP_SUBSCRIBERS_FILE = path.join(DATA_DIR, "drop-subscribers.json");
 const INVENTORY_FILE = path.join(DATA_DIR, "inventory.json");
 const PRICES_FILE = path.join(DATA_DIR, "prices.json");
 const SQLITE_FILE = path.join(DATA_DIR, "stonehorn.db");
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMITS = {
+  authLogin: { max: 12, windowMs: RATE_LIMIT_WINDOW_MS },
+  authSignup: { max: 8, windowMs: RATE_LIMIT_WINDOW_MS },
+  createCheckout: { max: 30, windowMs: RATE_LIMIT_WINDOW_MS },
+  braggingSubmit: { max: 8, windowMs: RATE_LIMIT_WINDOW_MS },
+  dropSendUpdate: { max: 6, windowMs: RATE_LIMIT_WINDOW_MS },
+};
+const rateLimitBuckets = new Map();
+setInterval(() => {
+  const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
+  for (const [key, bucket] of rateLimitBuckets.entries()) {
+    const kept = (bucket?.hits || []).filter((ts) => ts > cutoff);
+    if (!kept.length) {
+      rateLimitBuckets.delete(key);
+      continue;
+    }
+    bucket.hits = kept;
+  }
+}, RATE_LIMIT_WINDOW_MS).unref();
 
 let storageDb = null;
 
@@ -331,6 +351,96 @@ function formatOrderNumber(stripeSessionId) {
   const compact = raw.replace(/^cs_(test_|live_)?/i, "");
   const tail = compact.slice(-8).toUpperCase();
   return `SH-${tail || "N/A"}`;
+}
+
+function isGenericItemsLabel(value) {
+  const label = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!label) return false;
+  return /^\d+\s+items?$/.test(label) || label === "stonehorn item";
+}
+
+function formatOrderItems(order) {
+  if (Array.isArray(order?.cartItems) && order.cartItems.length) {
+    const normalized = order.cartItems
+      .map((entry) => {
+        const name = String(entry?.item || "").trim();
+        const quantity = Math.max(1, Number(entry?.quantity || 1));
+        if (!name) return "";
+        if (isGenericItemsLabel(name)) return "";
+        return quantity > 1 ? `${quantity}x ${name}` : name;
+      })
+      .filter(Boolean);
+    if (normalized.length) {
+      return normalized.join(", ");
+    }
+  }
+  const itemList = String(order?.itemList || "").trim();
+  if (itemList) return itemList;
+  return String(order?.item || "Stonehorn Item").trim() || "Stonehorn Item";
+}
+
+function buildItemListText(items) {
+  return (Array.isArray(items) ? items : [])
+    .map((entry) => {
+      const name = String(entry?.item || "").trim();
+      const quantity = Math.max(1, Number(entry?.quantity || 1));
+      if (!name) return "";
+      return quantity > 1 ? `${quantity}x ${name}` : name;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+function orderNeedsLineItemHydration(order) {
+  if (!order || !order.stripeSessionId) return false;
+  if (Array.isArray(order.cartItems) && order.cartItems.length) {
+    const hasGeneric = order.cartItems.some((entry) => isGenericItemsLabel(entry?.item || ""));
+    if (!hasGeneric) return false;
+  }
+  const label = String(order.item || "").trim().toLowerCase();
+  if (isGenericItemsLabel(label)) return true;
+  return !label || label === "stonehorn item";
+}
+
+async function hydrateOrderCartItemsFromStripe(order) {
+  if (!orderNeedsLineItemHydration(order)) return false;
+  try {
+    const lineItems = await stripeRequest("GET", `/v1/checkout/sessions/${encodeURIComponent(order.stripeSessionId)}/line_items?limit=100`);
+    const rows = Array.isArray(lineItems?.data) ? lineItems.data : [];
+    const mapped = rows
+      .map((entry) => {
+        const quantity = Math.max(1, Number(entry?.quantity || 1));
+        const name = String(entry?.description || entry?.price?.product?.name || "").trim();
+        const unitAmount = Number(entry?.price?.unit_amount || 0);
+        if (!name) return null;
+        return {
+          item: name.slice(0, 120),
+          quantity,
+          unitAmount: Math.max(0, unitAmount),
+          unitPrice: Math.max(0, unitAmount) / 100,
+        };
+      })
+      .filter(Boolean);
+    if (!mapped.length) return false;
+    order.cartItems = mapped;
+    order.quantity = mapped.reduce((sum, entry) => sum + Math.max(1, Number(entry.quantity || 1)), 0);
+    if (!order.unitAmount || !Number.isFinite(Number(order.unitAmount))) {
+      order.unitAmount = mapped.reduce((sum, entry) => sum + Math.round(Number(entry.unitAmount || 0)) * Number(entry.quantity || 1), 0);
+    }
+    if (!order.item || isGenericItemsLabel(order.item)) {
+      order.item = mapped.length === 1 ? mapped[0].item : `${order.quantity} items`;
+    }
+    const rebuiltItemList = buildItemListText(mapped);
+    if (rebuiltItemList) {
+      order.itemList = rebuiltItemList;
+    }
+    order.lineItemsHydratedAt = new Date().toISOString();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function getBraggingEntryFromStripeSession(sessionObj) {
@@ -636,9 +746,56 @@ function sendStatic(reqPath, res) {
     ".webp": "image/webp",
     ".json": "application/json; charset=utf-8",
   };
-
-  res.writeHead(200, { "Content-Type": types[ext] || "application/octet-stream" });
+  let cacheControl = "public, max-age=3600";
+  if (ext === ".html") {
+    cacheControl = "no-cache, no-store, must-revalidate";
+  } else if (ext === ".js" || ext === ".css") {
+    cacheControl = "no-cache, must-revalidate";
+  } else if (ext === ".png" || ext === ".jpg" || ext === ".jpeg" || ext === ".webp") {
+    cacheControl = "public, max-age=604800";
+  }
+  res.writeHead(200, {
+    "Content-Type": types[ext] || "application/octet-stream",
+    "Cache-Control": cacheControl,
+  });
   fs.createReadStream(filePath).pipe(res);
+}
+
+function getClientIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (forwarded.length) return forwarded[0];
+  return String(req.socket?.remoteAddress || "unknown");
+}
+
+function takeRateLimitToken(req, key, max, windowMs) {
+  const now = Date.now();
+  const ip = getClientIp(req);
+  const bucketKey = `${key}:${ip}`;
+  const existing = rateLimitBuckets.get(bucketKey);
+  const cutoff = now - windowMs;
+  const recentHits = (existing?.hits || []).filter((ts) => ts > cutoff);
+  if (recentHits.length >= max) {
+    const oldestInWindow = recentHits[0];
+    const retryAfterMs = Math.max(1000, windowMs - (now - oldestInWindow));
+    return { allowed: false, retryAfterSec: Math.ceil(retryAfterMs / 1000) };
+  }
+  recentHits.push(now);
+  rateLimitBuckets.set(bucketKey, { hits: recentHits });
+  return { allowed: true, retryAfterSec: 0 };
+}
+
+function enforceRateLimit(req, res, key, options) {
+  const hit = takeRateLimitToken(req, key, options.max, options.windowMs);
+  if (hit.allowed) return true;
+  res.setHeader("Retry-After", String(hit.retryAfterSec));
+  json(res, 429, {
+    error: "Too many requests. Please wait and try again.",
+    retryAfterSec: hit.retryAfterSec,
+  });
+  return false;
 }
 
 async function handleApi(req, res, urlObj) {
@@ -655,6 +812,7 @@ async function handleApi(req, res, urlObj) {
       const entryFromSession = getBraggingEntryFromStripeSession(sessionObj);
       const metaToken = entryFromSession.token;
       const metaPath = entryFromSession.path;
+      const metaItemList = String(sessionObj?.metadata?.itemList || "").trim();
       const existing = orders.find((o) => o.stripeSessionId === sessionObj.id);
       if (existing) {
         existing.status = "paid";
@@ -671,12 +829,16 @@ async function handleApi(req, res, urlObj) {
             submissionId: null,
           };
         }
+        if (!existing.itemList && metaItemList) {
+          existing.itemList = metaItemList;
+        }
       } else {
         orders.push({
           stripeSessionId: sessionObj.id,
           status: "paid",
           paidAt: new Date().toISOString(),
           item: sessionObj?.metadata?.item || "Stonehorn Item",
+          itemList: metaItemList || "",
           amountTotal: sessionObj.amount_total || 0,
           customerEmail: sessionObj.customer_details?.email || "",
           braggingEntry: metaToken
@@ -693,15 +855,30 @@ async function handleApi(req, res, urlObj) {
       }
 
       const order = orders.find((o) => o.stripeSessionId === sessionObj.id);
+      if (order) {
+        await hydrateOrderCartItemsFromStripe(order);
+        const displayItems = formatOrderItems(order);
+        if (displayItems && !isGenericItemsLabel(displayItems)) {
+          order.item = displayItems;
+          if (!order.itemList) order.itemList = displayItems;
+        }
+      }
       if (order && !order.emailSentAt) {
         const entryToken = order?.braggingEntry?.token || "";
         const entryPath = encodeURIComponent(order?.braggingEntry?.entryPath || "Buying a hat");
         const braggingEntryUrl = entryToken
           ? `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&entry_token=${encodeURIComponent(entryToken)}&entry_path=${entryPath}`
           : `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&session_id=${encodeURIComponent(order.stripeSessionId)}`;
+        const emailItem =
+          order.itemList ||
+          sessionObj?.metadata?.itemList ||
+          formatOrderItems(order) ||
+          order.item ||
+          sessionObj?.metadata?.item ||
+          "Stonehorn Item";
         const emailResult = await sendOrderConfirmationEmail({
           to: order.customerEmail || "",
-          item: order.item || "Stonehorn Item",
+          item: emailItem,
           amountTotalCents: order.amountTotal || sessionObj.amount_total || 0,
           orderId: order.stripeSessionId,
           braggingEntryUrl,
@@ -723,6 +900,7 @@ async function handleApi(req, res, urlObj) {
   const users = readJson(USERS_FILE, []);
 
   if (req.method === "POST" && urlObj.pathname === "/api/auth/signup") {
+    if (!enforceRateLimit(req, res, "auth:signup", RATE_LIMITS.authSignup)) return;
     let data;
     try {
       data = JSON.parse(await readBody(req));
@@ -768,6 +946,7 @@ async function handleApi(req, res, urlObj) {
   }
 
   if (req.method === "POST" && urlObj.pathname === "/api/auth/login") {
+    if (!enforceRateLimit(req, res, "auth:login", RATE_LIMITS.authLogin)) return;
     let data;
     try {
       data = JSON.parse(await readBody(req));
@@ -888,6 +1067,7 @@ async function handleApi(req, res, urlObj) {
   }
 
   if (req.method === "POST" && urlObj.pathname === "/api/bragging/submit") {
+    if (!enforceRateLimit(req, res, "bragging:submit", RATE_LIMITS.braggingSubmit)) return;
     let data;
     try {
       data = JSON.parse(await readBody(req));
@@ -1070,6 +1250,7 @@ async function handleApi(req, res, urlObj) {
   }
 
   if (req.method === "POST" && urlObj.pathname === "/api/create-checkout-session") {
+    if (!enforceRateLimit(req, res, "checkout:create", RATE_LIMITS.createCheckout)) return;
     let data;
     try {
       data = JSON.parse(await readBody(req));
@@ -1119,8 +1300,11 @@ async function handleApi(req, res, urlObj) {
         });
       }
     }
-    const orderLabel = normalizedItems.length === 1 ? normalizedItems[0].item : `${normalizedItems.length} items`;
     const totalQuantity = normalizedItems.reduce((sum, entry) => sum + entry.quantity, 0);
+    const orderLabel = normalizedItems.length === 1 ? normalizedItems[0].item : `${totalQuantity} items`;
+    const itemListText = buildItemListText(normalizedItems);
+    const clientItemList = String(data.itemList || "").trim().slice(0, 500);
+    const orderDisplayItem = itemListText || clientItemList || orderLabel;
     const totalAmountCents = normalizedItems.reduce((sum, entry) => sum + Math.round(entry.unitPrice * 100) * entry.quantity, 0);
     const origin = `${req.headers["x-forwarded-proto"] || "http"}://${req.headers.host}`;
     const returnTo = String(data.returnTo || "").trim();
@@ -1154,7 +1338,8 @@ async function handleApi(req, res, urlObj) {
         "shipping_address_collection[allowed_countries][0]": "US",
         "shipping_address_collection[allowed_countries][1]": "CA",
         "phone_number_collection[enabled]": "true",
-        "metadata[item]": orderLabel,
+        "metadata[item]": orderDisplayItem,
+        "metadata[itemList]": itemListText || clientItemList,
         "metadata[sessionOwner]": sid,
         "metadata[customerName]": customerName,
         "metadata[address1]": shippingAddress.address1,
@@ -1183,7 +1368,8 @@ async function handleApi(req, res, urlObj) {
         status: "created",
         createdAt: new Date().toISOString(),
         sessionId: sid,
-        item: orderLabel,
+        item: orderDisplayItem,
+        itemList: itemListText || clientItemList,
         unitAmount: totalAmountCents,
         quantity: totalQuantity,
         cartItems: normalizedItems.map((entry) => ({
@@ -1226,6 +1412,7 @@ async function handleApi(req, res, urlObj) {
       const entryFromSession = getBraggingEntryFromStripeSession(stripeSession);
       const metadataToken = entryFromSession.token;
       const metadataPath = entryFromSession.path;
+      const metadataItemList = String(stripeSession?.metadata?.itemList || "").trim();
 
       if (paid && order) {
         if (order.status !== "paid" && order.status !== "packed" && order.status !== "shipped") {
@@ -1256,6 +1443,19 @@ async function handleApi(req, res, urlObj) {
           };
           orderUpdated = true;
         }
+        if (!order.itemList && metadataItemList) {
+          order.itemList = metadataItemList;
+          orderUpdated = true;
+        }
+        if (await hydrateOrderCartItemsFromStripe(order)) {
+          orderUpdated = true;
+        }
+        const displayItems = formatOrderItems(order);
+        if (displayItems && !isGenericItemsLabel(displayItems) && order.item !== displayItems) {
+          order.item = displayItems;
+          if (!order.itemList) order.itemList = displayItems;
+          orderUpdated = true;
+        }
 
         if (!order.emailSentAt) {
           const entryToken = order?.braggingEntry?.token || "";
@@ -1263,9 +1463,16 @@ async function handleApi(req, res, urlObj) {
           const braggingEntryUrl = entryToken
             ? `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&entry_token=${encodeURIComponent(entryToken)}&entry_path=${entryPath}`
             : `${PUBLIC_BASE_URL}/bragging-board.html?from_checkout=1&session_id=${encodeURIComponent(order.stripeSessionId)}`;
+          const emailItem =
+            order.itemList ||
+            stripeSession?.metadata?.itemList ||
+            formatOrderItems(order) ||
+            order.item ||
+            stripeSession?.metadata?.item ||
+            "Stonehorn Item";
           const emailResult = await sendOrderConfirmationEmail({
             to: order.customerEmail || sessionEmail,
-            item: order.item || "Stonehorn Item",
+            item: emailItem,
             amountTotalCents: order.amountTotal || stripeSession.amount_total || 0,
             orderId: order.stripeSessionId,
             braggingEntryUrl,
@@ -1316,7 +1523,27 @@ async function handleApi(req, res, urlObj) {
     orders = orders
       .slice()
       .sort((a, b) => new Date(b.createdAt || b.paidAt || 0) - new Date(a.createdAt || a.paidAt || 0));
-    return json(res, 200, { items: orders });
+    let hydratedAny = false;
+    let hydrationCount = 0;
+    for (const order of orders) {
+      if (hydrationCount >= 20) break;
+      if (!orderNeedsLineItemHydration(order)) continue;
+      if (await hydrateOrderCartItemsFromStripe(order)) {
+        hydratedAny = true;
+      }
+      hydrationCount += 1;
+    }
+    if (hydratedAny) {
+      writeJson(ORDERS_FILE, orders);
+    }
+    const responseItems = orders.map((order) => {
+      const displayItems = formatOrderItems(order);
+      if (displayItems && !isGenericItemsLabel(displayItems)) {
+        return { ...order, item: displayItems, itemList: order.itemList || displayItems };
+      }
+      return order;
+    });
+    return json(res, 200, { items: responseItems });
   }
 
   const workerPackMatch = /^\/api\/worker\/orders\/([^/]+)\/pack$/.exec(urlObj.pathname);
@@ -1372,7 +1599,7 @@ async function handleApi(req, res, urlObj) {
     if (!order.shippingEmailSentAt && order.customerEmail) {
       const emailResult = await sendShippingUpdateEmail({
         to: order.customerEmail,
-        item: order.item || "Stonehorn Item",
+        item: formatOrderItems(order),
         orderId: order.stripeSessionId,
         carrier,
         trackingNumber,
@@ -1400,7 +1627,27 @@ async function handleApi(req, res, urlObj) {
     const orders = readJson(ORDERS_FILE, [])
       .slice()
       .sort((a, b) => new Date(b.createdAt || b.paidAt || 0) - new Date(a.createdAt || a.paidAt || 0));
-    return json(res, 200, { items: orders });
+    let hydratedAny = false;
+    let hydrationCount = 0;
+    for (const order of orders) {
+      if (hydrationCount >= 20) break;
+      if (!orderNeedsLineItemHydration(order)) continue;
+      if (await hydrateOrderCartItemsFromStripe(order)) {
+        hydratedAny = true;
+      }
+      hydrationCount += 1;
+    }
+    if (hydratedAny) {
+      writeJson(ORDERS_FILE, orders);
+    }
+    const responseItems = orders.map((order) => {
+      const displayItems = formatOrderItems(order);
+      if (displayItems && !isGenericItemsLabel(displayItems)) {
+        return { ...order, item: displayItems, itemList: order.itemList || displayItems };
+      }
+      return order;
+    });
+    return json(res, 200, { items: responseItems });
   }
 
   if (req.method === "GET" && urlObj.pathname === "/api/admin/inventory") {
@@ -1482,6 +1729,7 @@ async function handleApi(req, res, urlObj) {
   }
 
   if (req.method === "POST" && urlObj.pathname === "/api/admin/drops/send-update") {
+    if (!enforceRateLimit(req, res, "admin:drops:send", RATE_LIMITS.dropSendUpdate)) return;
     let data;
     try {
       data = JSON.parse(await readBody(req));
