@@ -104,6 +104,22 @@ const PRODUCT_IMAGE_MAP = {
   "Black Quilted Jacket": "./hoodie-4-jacket.png",
 };
 
+const PRODUCT_SKUS = {
+  "Black Leather Patch Hat": "SH-HAT-001",
+  "Embroidered Text Hat": "SH-HAT-002",
+  "Black Ibex Logo Hat": "SH-HAT-003",
+  "Blue Rope Hat": "SH-HAT-004",
+  "Cream Badge Hat": "SH-HAT-005",
+  "Cream Mountain Script Hat": "SH-HAT-006",
+  "Black Gold Ibex Hat": "SH-HAT-007",
+  "Cream Backcountry Patch Hat": "SH-HAT-008",
+  "Black Forest Hoodie": "SH-HOO-001",
+  "Green Brush Hoodie": "SH-HOO-002",
+  "Earth Tone Hoodie": "SH-HOO-003",
+  "Black Quilted Jacket": "SH-JKT-001",
+  "Bragging Board Entry": "SH-BRD-001",
+};
+
 const revealObserver = new IntersectionObserver(
   (entries, observer) => {
     entries.forEach((entry) => {
@@ -227,7 +243,9 @@ const formatOrderItemsLabel = (order) => {
         const quantity = Math.max(1, Number(entry?.quantity || 1));
         if (!name) return "";
         if (isGenericItemsLabel(name)) return "";
-        return quantity > 1 ? `${quantity}x ${name}` : name;
+        const sku = String(entry?.sku || PRODUCT_SKUS[name] || "").trim();
+        const base = quantity > 1 ? `${quantity}x ${name}` : name;
+        return sku ? `${base} (${sku})` : base;
       })
       .filter(Boolean);
     if (normalized.length) {
@@ -239,6 +257,22 @@ const formatOrderItemsLabel = (order) => {
   const fallback = String(order?.item || "Stonehorn Item").trim() || "Stonehorn Item";
   if (isGenericItemsLabel(fallback)) return "Stonehorn Order";
   return fallback;
+};
+
+const getOrderSkuSummary = (order) => {
+  const skuSet = new Set();
+  if (Array.isArray(order?.cartItems)) {
+    order.cartItems.forEach((entry) => {
+      const name = String(entry?.item || "").trim();
+      const sku = String(entry?.sku || PRODUCT_SKUS[name] || "").trim();
+      if (sku) skuSet.add(sku);
+    });
+  }
+  if (!skuSet.size) {
+    const singleSku = PRODUCT_SKUS[String(order?.item || "").trim()];
+    if (singleSku) skuSet.add(singleSku);
+  }
+  return Array.from(skuSet).join(", ");
 };
 
 const fileToDataUrl = (file) =>
@@ -841,6 +875,7 @@ const renderAdminOrders = (items) => {
       const emailState = item.emailSentAt ? "Sent" : item.emailError ? "Error" : "Pending";
       const orderNum = formatOrderNumber(item.stripeSessionId);
       const itemSummary = formatOrderItemsLabel(item);
+      const skuSummary = getOrderSkuSummary(item);
       const fulfillmentState =
         item.status === "shipped"
           ? "Shipped"
@@ -864,6 +899,7 @@ const renderAdminOrders = (items) => {
       <article class="recent-card order-card reveal is-visible">
         <p class="small"><strong>${escapeHtml(itemSummary)}</strong></p>
         <p class="small">Order: ${orderNum}</p>
+        ${skuSummary ? `<p class="small">SKU: ${escapeHtml(skuSummary)}</p>` : ""}
         <p class="small">Amount: $${amount.toFixed(2)}</p>
         <p class="small">Email: ${item.customerEmail || "N/A"}</p>
         <p class="small">Status: ${item.status || "unknown"} | Paid: ${paidDate}</p>
@@ -978,6 +1014,7 @@ const renderFulfillmentOrders = (items) => {
       const orderDateRaw = item.paidAt || item.createdAt || "";
       const orderDate = orderDateRaw ? new Date(orderDateRaw).toLocaleString() : "N/A";
       const itemSummary = formatOrderItemsLabel(item);
+      const skuSummary = getOrderSkuSummary(item);
       const address = item.shippingAddress
         ? `${item.shippingAddress.address1 || ""} ${item.shippingAddress.address2 || ""}, ${item.shippingAddress.city || ""}, ${item.shippingAddress.state || ""} ${item.shippingAddress.zip || ""}`.trim()
         : "N/A";
@@ -986,6 +1023,7 @@ const renderFulfillmentOrders = (items) => {
         <article class="recent-card order-card reveal is-visible">
           <p class="small"><strong>${escapeHtml(itemSummary)}</strong></p>
           <p class="small">Order: ${escapeHtml(orderNum)}</p>
+          ${skuSummary ? `<p class="small">SKU: ${escapeHtml(skuSummary)}</p>` : ""}
           <p class="small">Order Date: ${escapeHtml(orderDate)}</p>
           <p class="small">Amount: $${amount.toFixed(2)}</p>
           <p class="small">Customer: ${escapeHtml(item.customerEmail || "N/A")}</p>

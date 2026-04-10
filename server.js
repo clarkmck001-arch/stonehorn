@@ -90,6 +90,22 @@ const PRODUCT_CATALOG = [
   "Bragging Board Entry",
 ];
 
+const PRODUCT_SKUS = {
+  "Black Leather Patch Hat": "SH-HAT-001",
+  "Embroidered Text Hat": "SH-HAT-002",
+  "Black Ibex Logo Hat": "SH-HAT-003",
+  "Blue Rope Hat": "SH-HAT-004",
+  "Cream Badge Hat": "SH-HAT-005",
+  "Cream Mountain Script Hat": "SH-HAT-006",
+  "Black Gold Ibex Hat": "SH-HAT-007",
+  "Cream Backcountry Patch Hat": "SH-HAT-008",
+  "Black Forest Hoodie": "SH-HOO-001",
+  "Green Brush Hoodie": "SH-HOO-002",
+  "Earth Tone Hoodie": "SH-HOO-003",
+  "Black Quilted Jacket": "SH-JKT-001",
+  "Bragging Board Entry": "SH-BRD-001",
+};
+
 const DEFAULT_PRICES = {
   "Black Leather Patch Hat": 42,
   "Embroidered Text Hat": 42,
@@ -361,6 +377,14 @@ function isGenericItemsLabel(value) {
   return /^\d+\s+items?$/.test(label) || label === "stonehorn item";
 }
 
+function getSkuForItem(itemName) {
+  const name = String(itemName || "").trim();
+  if (!name) return "SH-CUS-000000";
+  if (PRODUCT_SKUS[name]) return PRODUCT_SKUS[name];
+  const digest = crypto.createHash("sha1").update(name.toLowerCase()).digest("hex").slice(0, 6).toUpperCase();
+  return `SH-CUS-${digest}`;
+}
+
 function formatOrderItems(order) {
   if (Array.isArray(order?.cartItems) && order.cartItems.length) {
     const normalized = order.cartItems
@@ -369,7 +393,9 @@ function formatOrderItems(order) {
         const quantity = Math.max(1, Number(entry?.quantity || 1));
         if (!name) return "";
         if (isGenericItemsLabel(name)) return "";
-        return quantity > 1 ? `${quantity}x ${name}` : name;
+        const sku = String(entry?.sku || getSkuForItem(name)).trim();
+        const base = quantity > 1 ? `${quantity}x ${name}` : name;
+        return `${base} (${sku})`;
       })
       .filter(Boolean);
     if (normalized.length) {
@@ -381,13 +407,17 @@ function formatOrderItems(order) {
   return String(order?.item || "Stonehorn Item").trim() || "Stonehorn Item";
 }
 
-function buildItemListText(items) {
+function buildItemListText(items, options = {}) {
+  const includeSku = Boolean(options.includeSku);
   return (Array.isArray(items) ? items : [])
     .map((entry) => {
       const name = String(entry?.item || "").trim();
       const quantity = Math.max(1, Number(entry?.quantity || 1));
       if (!name) return "";
-      return quantity > 1 ? `${quantity}x ${name}` : name;
+      const base = quantity > 1 ? `${quantity}x ${name}` : name;
+      if (!includeSku) return base;
+      const sku = String(entry?.sku || getSkuForItem(name)).trim();
+      return `${base} (${sku})`;
     })
     .filter(Boolean)
     .join(", ");
@@ -420,6 +450,7 @@ async function hydrateOrderCartItemsFromStripe(order) {
           quantity,
           unitAmount: Math.max(0, unitAmount),
           unitPrice: Math.max(0, unitAmount) / 100,
+          sku: getSkuForItem(name),
         };
       })
       .filter(Boolean);
@@ -432,7 +463,7 @@ async function hydrateOrderCartItemsFromStripe(order) {
     if (!order.item || isGenericItemsLabel(order.item)) {
       order.item = mapped.length === 1 ? mapped[0].item : `${order.quantity} items`;
     }
-    const rebuiltItemList = buildItemListText(mapped);
+    const rebuiltItemList = buildItemListText(mapped, { includeSku: true });
     if (rebuiltItemList) {
       order.itemList = rebuiltItemList;
     }
@@ -1270,6 +1301,7 @@ async function handleApi(req, res, urlObj) {
             unitPrice: Number.isFinite(priceMap[String(entry.item || "").slice(0, 120)])
               ? Number(priceMap[String(entry.item || "").slice(0, 120)])
               : Number(entry.unitPrice || 0),
+            sku: getSkuForItem(String(entry.item || "").slice(0, 120)),
           }))
           .filter((entry) => entry.item && Number.isFinite(entry.unitPrice) && entry.unitPrice > 0)
       : [
@@ -1277,6 +1309,7 @@ async function handleApi(req, res, urlObj) {
             item,
             quantity,
             unitPrice: Number.isFinite(priceMap[item]) ? Number(priceMap[item]) : requestedUnitPrice,
+            sku: getSkuForItem(item),
           },
         ];
     if (!normalizedItems.length) {
@@ -1302,7 +1335,7 @@ async function handleApi(req, res, urlObj) {
     }
     const totalQuantity = normalizedItems.reduce((sum, entry) => sum + entry.quantity, 0);
     const orderLabel = normalizedItems.length === 1 ? normalizedItems[0].item : `${totalQuantity} items`;
-    const itemListText = buildItemListText(normalizedItems);
+    const itemListText = buildItemListText(normalizedItems, { includeSku: true });
     const clientItemList = String(data.itemList || "").trim().slice(0, 500);
     const orderDisplayItem = itemListText || clientItemList || orderLabel;
     const totalAmountCents = normalizedItems.reduce((sum, entry) => sum + Math.round(entry.unitPrice * 100) * entry.quantity, 0);
@@ -1377,6 +1410,7 @@ async function handleApi(req, res, urlObj) {
           quantity: entry.quantity,
           unitAmount: Math.round(entry.unitPrice * 100),
           unitPrice: entry.unitPrice,
+          sku: entry.sku,
         })),
         customerEmail,
         customerName,
