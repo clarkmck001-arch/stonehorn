@@ -4,6 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { URL } = require("url");
 const { DatabaseSync } = require("node:sqlite");
+const { Pool } = require("pg");
 
 function loadEnvFile() {
   const envPath = path.join(__dirname, ".env");
@@ -41,6 +42,11 @@ const EMAIL_LOGO_URL = process.env.EMAIL_LOGO_URL || `${PUBLIC_BASE_URL}/archive
 const STORAGE_MODE = String(process.env.STONEHORN_STORAGE || "sqlite")
   .trim()
   .toLowerCase();
+const DATABASE_URL = String(process.env.DATABASE_URL || "").trim();
+const DATABASE_SSL = String(process.env.DATABASE_SSL || "true")
+  .trim()
+  .toLowerCase();
+const BRAGGING_BOARD_MAX_APPROVED = Math.max(1, Number(process.env.BRAGGING_BOARD_MAX_APPROVED || 60));
 const ROOT = __dirname;
 const DATA_DIR = path.resolve(process.env.STONEHORN_DATA_DIR || path.join(ROOT, "data"));
 const UPLOAD_DIR = path.resolve(process.env.STONEHORN_UPLOAD_DIR || path.join(ROOT, "uploads"));
@@ -76,6 +82,9 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS).unref();
 
 let storageDb = null;
+let pgPool = null;
+const pgStoreCache = new Map();
+let pgWriteChain = Promise.resolve();
 
 const PRODUCT_CATALOG = [
   "Black Leather Patch Hat",
@@ -127,21 +136,6 @@ const DEFAULT_PRICES = {
 
 ensureDir(DATA_DIR);
 ensureDir(UPLOAD_DIR);
-initStorage();
-ensureJsonFile(SUBMISSIONS_FILE, []);
-ensureJsonFile(SESSIONS_FILE, {});
-ensureJsonFile(ORDERS_FILE, []);
-ensureJsonFile(USERS_FILE, []);
-ensureJsonFile(DROP_SUBSCRIBERS_FILE, []);
-ensureJsonFile(INVENTORY_FILE, {});
-ensureJsonFile(PRICES_FILE, {});
-ensureJsonFile(LOW_STOCK_ALERTS_FILE, {});
-ensureJsonFile(ANNOUNCEMENT_FILE, {
-  enabled: false,
-  message: "",
-  updatedAt: null,
-  updatedBy: "",
-});
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -153,16 +147,91 @@ function useSqliteStorage() {
   return STORAGE_MODE === "sqlite";
 }
 
-function initStorage() {
-  if (!useSqliteStorage()) return;
-  storageDb = new DatabaseSync(SQLITE_FILE);
-  storageDb.exec(`
+function usePostgresStorage() {
+  return STORAGE_MODE === "postgres";
+}
+
+async function initStorage() {
+  if (useSqliteStorage()) {
+    storageDb = new DatabaseSync(SQLITE_FILE);
+    storageDb.exec(`
+      CREATE TABLE IF NOT EXISTS json_store (
+        store_key TEXT PRIMARY KEY,
+        json_value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    return;
+  }
+
+  if (!usePostgresStorage()) return;
+  if (!DATABASE_URL) {
+    throw new Error("Postgres storage selected but DATABASE_URL is missing.");
+  }
+
+  pgPool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
+  });
+
+  await pgPool.query(`
     CREATE TABLE IF NOT EXISTS json_store (
       store_key TEXT PRIMARY KEY,
       json_value TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  const { rows } = await pgPool.query("SELECT store_key, json_value FROM json_store");
+  rows.forEach((row) => {
+    if (!row || typeof row.store_key !== "string") return;
+    pgStoreCache.set(row.store_key, String(row.json_value || ""));
+  });
+}
+
+function getPgCachedValue(storeKey) {
+  if (!usePostgresStorage()) return null;
+  if (!pgStoreCache.has(storeKey)) return null;
+  return pgStoreCache.get(storeKey);
+}
+
+function enqueuePgWrite(storeKey, value) {
+  if (!usePostgresStorage()) return;
+  if (!pgPool) return;
+  const updatedAt = new Date().toISOString();
+  pgStoreCache.set(storeKey, value);
+  pgWriteChain = pgWriteChain
+    .then(() =>
+      pgPool.query(
+        `INSERT INTO json_store (store_key, json_value, updated_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (store_key) DO UPDATE SET
+           json_value = EXCLUDED.json_value,
+           updated_at = EXCLUDED.updated_at`,
+        [storeKey, value, updatedAt]
+      )
+    )
+    .catch((error) => {
+      console.error("[storage] Postgres write failed", { storeKey, error: error?.message || String(error) });
+    });
+}
+
+async function bootstrapStorage() {
+  await initStorage();
+  ensureJsonFile(SUBMISSIONS_FILE, []);
+  ensureJsonFile(SESSIONS_FILE, {});
+  ensureJsonFile(ORDERS_FILE, []);
+  ensureJsonFile(USERS_FILE, []);
+  ensureJsonFile(DROP_SUBSCRIBERS_FILE, []);
+  ensureJsonFile(INVENTORY_FILE, {});
+  ensureJsonFile(PRICES_FILE, {});
+  ensureJsonFile(LOW_STOCK_ALERTS_FILE, {});
+  ensureJsonFile(ANNOUNCEMENT_FILE, {
+    enabled: false,
+    message: "",
+    updatedAt: null,
+    updatedBy: "",
+  });
 }
 
 function getStoreKey(filePath) {
@@ -205,6 +274,21 @@ function ensureJsonFile(filePath, fallbackData) {
     sqliteWriteValue(storeKey, JSON.stringify(seed));
     return;
   }
+  if (usePostgresStorage()) {
+    const storeKey = getStoreKey(filePath);
+    const existing = getPgCachedValue(storeKey);
+    if (existing !== null) return;
+    let seed = fallbackData;
+    if (fs.existsSync(filePath)) {
+      try {
+        seed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      } catch {
+        seed = fallbackData;
+      }
+    }
+    enqueuePgWrite(storeKey, JSON.stringify(seed));
+    return;
+  }
   if (!fs.existsSync(filePath)) {
     fs.writeFileSync(filePath, JSON.stringify(fallbackData, null, 2));
   }
@@ -230,6 +314,25 @@ function readJson(filePath, fallbackData) {
       return fallbackData;
     }
   }
+  if (usePostgresStorage()) {
+    const storeKey = getStoreKey(filePath);
+    const raw = getPgCachedValue(storeKey);
+    if (raw === null) {
+      ensureJsonFile(filePath, fallbackData);
+      const seeded = getPgCachedValue(storeKey);
+      if (seeded === null) return fallbackData;
+      try {
+        return JSON.parse(seeded);
+      } catch {
+        return fallbackData;
+      }
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return fallbackData;
+    }
+  }
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch {
@@ -241,6 +344,11 @@ function writeJson(filePath, data) {
   if (useSqliteStorage()) {
     const storeKey = getStoreKey(filePath);
     sqliteWriteValue(storeKey, JSON.stringify(data));
+    return;
+  }
+  if (usePostgresStorage()) {
+    const storeKey = getStoreKey(filePath);
+    enqueuePgWrite(storeKey, JSON.stringify(data));
     return;
   }
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
@@ -339,6 +447,41 @@ function getAnnouncement() {
     updatedAt: raw.updatedAt || null,
     updatedBy: String(raw.updatedBy || "").trim().slice(0, 120),
   };
+}
+
+function deleteUploadedImage(imagePath) {
+  const safePath = String(imagePath || "");
+  if (!safePath.startsWith("/uploads/")) return;
+  const uploadPath = path.join(UPLOAD_DIR, path.basename(safePath));
+  try {
+    if (fs.existsSync(uploadPath)) fs.unlinkSync(uploadPath);
+  } catch {
+    // Keep cleanup resilient if file is already missing.
+  }
+}
+
+function getSubmissionTimestamp(submission) {
+  const candidate = submission?.reviewedAt || submission?.createdAt || "";
+  const ms = new Date(candidate).getTime();
+  if (!Number.isFinite(ms)) return 0;
+  return ms;
+}
+
+function pruneApprovedSubmissions(submissions, maxApproved) {
+  const approved = submissions
+    .filter((entry) => entry?.status === "approved")
+    .slice()
+    .sort((a, b) => getSubmissionTimestamp(b) - getSubmissionTimestamp(a));
+  if (approved.length <= maxApproved) return [];
+  const keepIds = new Set(approved.slice(0, maxApproved).map((entry) => entry.id));
+  const removed = [];
+  for (let i = submissions.length - 1; i >= 0; i -= 1) {
+    const entry = submissions[i];
+    if (entry?.status !== "approved") continue;
+    if (keepIds.has(entry.id)) continue;
+    removed.push(...submissions.splice(i, 1));
+  }
+  return removed;
 }
 
 function parseCookies(header = "") {
@@ -1384,9 +1527,13 @@ async function handleApi(req, res, urlObj) {
   }
 
   if (req.method === "GET" && urlObj.pathname === "/api/bragging/recent") {
-    const approved = submissions
-      .filter((s) => s.status === "approved")
-      .slice(0, 12)
+    const limitRaw = Number(urlObj.searchParams.get("limit") || 12);
+    const offsetRaw = Number(urlObj.searchParams.get("offset") || 0);
+    const limit = Math.max(1, Math.min(24, Number.isFinite(limitRaw) ? Math.floor(limitRaw) : 12));
+    const offset = Math.max(0, Number.isFinite(offsetRaw) ? Math.floor(offsetRaw) : 0);
+    const approvedAll = submissions.filter((s) => s.status === "approved");
+    const approved = approvedAll
+      .slice(offset, offset + limit)
       .map((s) => ({
         id: s.id,
         name: s.name || "",
@@ -1395,7 +1542,13 @@ async function handleApi(req, res, urlObj) {
         imagePath: s.imagePath,
         createdAt: s.createdAt,
       }));
-    return json(res, 200, { items: approved });
+    return json(res, 200, {
+      items: approved,
+      total: approvedAll.length,
+      limit,
+      offset,
+      hasMore: offset + approved.length < approvedAll.length,
+    });
   }
 
   if (req.method === "GET" && urlObj.pathname === "/api/inventory/public") {
@@ -1999,6 +2152,28 @@ async function handleApi(req, res, urlObj) {
     }
     target.status = action === "approve" ? "approved" : "rejected";
     target.reviewedAt = new Date().toISOString();
+    let prunedCount = 0;
+    if (action === "approve") {
+      const removed = pruneApprovedSubmissions(submissions, BRAGGING_BOARD_MAX_APPROVED);
+      prunedCount = removed.length;
+      if (removed.length) {
+        const removedIds = new Set(removed.map((entry) => entry.id));
+        removed.forEach((entry) => {
+          deleteUploadedImage(entry.imagePath);
+        });
+        const orders = readJson(ORDERS_FILE, []);
+        let ordersChanged = false;
+        orders.forEach((order) => {
+          const sid = order?.braggingEntry?.submissionId;
+          if (!sid || !removedIds.has(sid)) return;
+          order.braggingEntry.used = false;
+          order.braggingEntry.usedAt = null;
+          order.braggingEntry.submissionId = null;
+          ordersChanged = true;
+        });
+        if (ordersChanged) writeJson(ORDERS_FILE, orders);
+      }
+    }
     writeJson(SUBMISSIONS_FILE, submissions);
 
     if (action === "approve") {
@@ -2008,7 +2183,7 @@ async function handleApi(req, res, urlObj) {
         writeJson(SESSIONS_FILE, allSessions);
       }
     }
-    return json(res, 200, { ok: true });
+    return json(res, 200, { ok: true, prunedCount });
   }
 
   const editDeleteMatch = /^\/api\/admin\/submissions\/([a-f0-9]+)$/.exec(urlObj.pathname);
@@ -2041,15 +2216,7 @@ async function handleApi(req, res, urlObj) {
     const [removed] = submissions.splice(idx, 1);
     writeJson(SUBMISSIONS_FILE, submissions);
 
-    const imagePath = String(removed.imagePath || "");
-    if (imagePath.startsWith("/uploads/")) {
-      const uploadPath = path.join(UPLOAD_DIR, path.basename(imagePath));
-      try {
-        if (fs.existsSync(uploadPath)) fs.unlinkSync(uploadPath);
-      } catch {
-        // Keep delete resilient if the file is already missing.
-      }
-    }
+    deleteUploadedImage(removed.imagePath);
 
     const orders = readJson(ORDERS_FILE, []);
     const order = orders.find((o) => o?.braggingEntry?.submissionId === id);
@@ -2084,8 +2251,17 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`Stonehorn server running on http://${HOST}:${PORT}`);
-  console.log("Admin password:", ADMIN_PASSWORD);
-  console.log("Worker password:", WORKER_PASSWORD);
+async function startServer() {
+  await bootstrapStorage();
+  server.listen(PORT, HOST, () => {
+    console.log(`Stonehorn server running on http://${HOST}:${PORT}`);
+    console.log("Admin password:", ADMIN_PASSWORD);
+    console.log("Worker password:", WORKER_PASSWORD);
+    console.log("Storage mode:", STORAGE_MODE);
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Failed to start Stonehorn server:", error?.message || String(error));
+  process.exit(1);
 });

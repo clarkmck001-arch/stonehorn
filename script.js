@@ -20,6 +20,7 @@ const boardForm = document.querySelector("#bragging-form");
 const boardStatus = document.querySelector("#board-status");
 const boardOptionTwo = document.querySelector("#board-option-two");
 const recentGrid = document.querySelector("#recent-grid");
+const recentLoadMoreBtn = document.querySelector("#recent-load-more-btn");
 
 const adminLoginBtn = document.querySelector("#admin-login-btn");
 const adminRefreshBtn = document.querySelector("#admin-refresh-btn");
@@ -96,6 +97,9 @@ let adminOrdersCache = [];
 let publicInventoryMap = new Map();
 let publicPriceMap = new Map();
 let adminPriceMap = new Map();
+let recentBoardOffset = 0;
+let recentBoardTotal = 0;
+const RECENT_BOARD_PAGE_SIZE = 12;
 const PRODUCT_IMAGE_MAP = {
   "Black Leather Patch Hat": "./IMG_7923.PNG",
   "Embroidered Text Hat": "./IMG_7935.jpg",
@@ -726,18 +730,9 @@ if (cartCheckoutBtn) {
   });
 }
 
-const loadRecentBoard = async () => {
+const renderRecentBoardCards = (items, append = false) => {
   if (!recentGrid) return;
-  const { ok, data } = await jsonFetch("/api/bragging/recent", { method: "GET" });
-  if (!ok || !Array.isArray(data.items)) {
-    recentGrid.innerHTML = '<p class="small">Could not load recent entries.</p>';
-    return;
-  }
-  if (!data.items.length) {
-    recentGrid.innerHTML = '<p class="small">No approved entries yet. Submit yours to start the board.</p>';
-    return;
-  }
-  recentGrid.innerHTML = data.items
+  const html = items
     .map(
       (item) => `
       <article class="recent-card reveal is-visible">
@@ -749,7 +744,55 @@ const loadRecentBoard = async () => {
     `
     )
     .join("");
+  if (append) recentGrid.insertAdjacentHTML("beforeend", html);
+  else recentGrid.innerHTML = html;
 };
+
+const setRecentLoadMoreState = ({ hasMore, loading = false }) => {
+  if (!recentLoadMoreBtn) return;
+  recentLoadMoreBtn.classList.toggle("hidden", !hasMore);
+  recentLoadMoreBtn.disabled = loading;
+  recentLoadMoreBtn.textContent = loading ? "Loading..." : "Load More";
+};
+
+const loadRecentBoard = async ({ append = false } = {}) => {
+  if (!recentGrid) return;
+  const offset = append ? recentBoardOffset : 0;
+  if (!append) {
+    recentBoardOffset = 0;
+    recentBoardTotal = 0;
+    setRecentLoadMoreState({ hasMore: false, loading: true });
+  } else {
+    setRecentLoadMoreState({ hasMore: true, loading: true });
+  }
+  const { ok, data } = await jsonFetch(
+    `/api/bragging/recent?limit=${encodeURIComponent(RECENT_BOARD_PAGE_SIZE)}&offset=${encodeURIComponent(offset)}`,
+    { method: "GET" }
+  );
+  if (!ok || !Array.isArray(data.items)) {
+    if (!append) {
+      recentGrid.innerHTML = '<p class="small">Could not load recent entries.</p>';
+    }
+    setRecentLoadMoreState({ hasMore: false, loading: false });
+    return;
+  }
+  if (!append && !data.items.length) {
+    recentGrid.innerHTML = '<p class="small">No approved entries yet. Submit yours to start the board.</p>';
+    setRecentLoadMoreState({ hasMore: false, loading: false });
+    return;
+  }
+  renderRecentBoardCards(data.items, append);
+  recentBoardOffset = offset + data.items.length;
+  recentBoardTotal = Number(data.total || recentBoardOffset);
+  const hasMore = Boolean(data.hasMore) && recentBoardOffset < recentBoardTotal;
+  setRecentLoadMoreState({ hasMore, loading: false });
+};
+
+if (recentLoadMoreBtn) {
+  recentLoadMoreBtn.addEventListener("click", async () => {
+    await loadRecentBoard({ append: true });
+  });
+}
 
 const setBoardEntryAndFocus = (entryValue) => {
   if (!boardForm) return;
