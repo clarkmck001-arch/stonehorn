@@ -86,8 +86,8 @@ const checkoutZip = document.querySelector("#checkout-zip");
 const checkoutCountry = document.querySelector("#checkout-country");
 const checkoutStatus = document.querySelector("#checkout-status");
 const successBragBtn = document.querySelector("#success-brag-btn");
-const siteAnnouncement = document.querySelector("#site-announcement");
-const siteAnnouncementText = document.querySelector("#site-announcement-text");
+let siteAnnouncement = document.querySelector("#site-announcement");
+let siteAnnouncementText = document.querySelector("#site-announcement-text");
 let appToastTimer = null;
 
 const CHECKOUT_PREF_KEY = "stonehorn_save_checkout_pref";
@@ -583,6 +583,23 @@ const loadPublicPricing = async () => {
 };
 
 const loadSiteAnnouncement = async () => {
+  if (!siteAnnouncement || !siteAnnouncementText) {
+    if (window.location.pathname.endsWith("/index.html") || window.location.pathname === "/") {
+      const main = document.querySelector("main");
+      if (main) {
+        const section = document.createElement("section");
+        section.className = "section announcement-bar hidden";
+        section.id = "site-announcement";
+        section.setAttribute("aria-live", "polite");
+        const text = document.createElement("p");
+        text.id = "site-announcement-text";
+        section.appendChild(text);
+        main.insertBefore(section, main.firstChild);
+        siteAnnouncement = section;
+        siteAnnouncementText = text;
+      }
+    }
+  }
   if (!siteAnnouncement || !siteAnnouncementText) return;
   const { ok, data } = await jsonFetch("/api/announcement", { method: "GET" });
   if (!ok) return;
