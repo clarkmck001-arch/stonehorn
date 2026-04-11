@@ -1261,11 +1261,12 @@ const renderAdminInventory = (items) => {
     .map((entry) => {
       const stockVal = entry.stock === null || typeof entry.stock === "undefined" ? "" : String(entry.stock);
       const priceVal = Number(adminPriceMap.get(entry.item) || 0).toFixed(2);
+      const skuLabel = String(PRODUCT_SKUS[String(entry.item || "").trim()] || "N/A");
       const remainingLabel =
         entry.remaining === null ? "Not tracked" : `${entry.remaining} left (sold ${entry.sold || 0})`;
       return `
         <div class="inventory-row">
-          <p class="small"><strong>${escapeHtml(entry.item)}</strong></p>
+          <p class="small"><strong>${escapeHtml(entry.item)}</strong><br /><span class="small">SKU: ${escapeHtml(skuLabel)}</span></p>
           <input type="number" min="0" step="1" data-item-stock="${escapeHtml(entry.item)}" value="${escapeHtml(stockVal)}" placeholder="Untracked" />
           <input type="number" min="0.01" step="0.01" data-item-price="${escapeHtml(entry.item)}" value="${escapeHtml(priceVal)}" />
           <p class="small">${escapeHtml(remainingLabel)}</p>
