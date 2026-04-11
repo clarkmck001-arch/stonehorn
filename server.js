@@ -96,7 +96,7 @@ const PRODUCT_CATALOG = [
   "Cream Mountain Script Hat",
   "Black Gold Ibex Hat",
   "Cream Backcountry Patch Hat",
-  "Black Forest Hoodie",
+  "Black Brush Hoodie",
   "Green Brush Hoodie",
   "Earth Tone Hoodie",
   "Black Quilted Jacket",
@@ -112,7 +112,7 @@ const PRODUCT_SKUS = {
   "Cream Mountain Script Hat": "SH-HAT-006",
   "Black Gold Ibex Hat": "SH-HAT-007",
   "Cream Backcountry Patch Hat": "SH-HAT-008",
-  "Black Forest Hoodie": "SH-HOO-001",
+  "Black Brush Hoodie": "SH-HOO-001",
   "Green Brush Hoodie": "SH-HOO-002",
   "Earth Tone Hoodie": "SH-HOO-003",
   "Black Quilted Jacket": "SH-JKT-001",
@@ -128,11 +128,15 @@ const DEFAULT_PRICES = {
   "Cream Mountain Script Hat": 42,
   "Black Gold Ibex Hat": 42,
   "Cream Backcountry Patch Hat": 42,
-  "Black Forest Hoodie": 68,
+  "Black Brush Hoodie": 68,
   "Green Brush Hoodie": 68,
   "Earth Tone Hoodie": 68,
   "Black Quilted Jacket": 92,
   "Bragging Board Entry": 25,
+};
+
+const LEGACY_ITEM_NAME_MAP = {
+  "Black Forest Hoodie": "Black Brush Hoodie",
 };
 
 ensureDir(DATA_DIR);
@@ -389,14 +393,14 @@ function getSoldCountsByItem() {
     .forEach((order) => {
       if (Array.isArray(order.cartItems) && order.cartItems.length) {
         order.cartItems.forEach((entry) => {
-          const item = String(entry.item || "").trim();
+          const item = normalizeItemName(entry.item);
           const quantity = Math.max(1, Number(entry.quantity || 1));
           if (!item) return;
           sold[item] = (sold[item] || 0) + quantity;
         });
         return;
       }
-      const item = String(order.item || "").trim();
+      const item = normalizeItemName(order.item);
       const quantity = Math.max(1, Number(order.quantity || 1));
       if (!item) return;
       sold[item] = (sold[item] || 0) + quantity;
@@ -405,7 +409,21 @@ function getSoldCountsByItem() {
 }
 
 function getInventorySnapshot() {
-  const raw = readJson(INVENTORY_FILE, {});
+  const rawSource = readJson(INVENTORY_FILE, {});
+  const raw = {};
+  Object.entries(rawSource || {}).forEach(([item, value]) => {
+    const key = normalizeItemName(item);
+    if (!key) return;
+    const candidateStock = Number(value?.stock);
+    if (!raw[key]) {
+      raw[key] = value;
+      return;
+    }
+    const existingStock = Number(raw[key]?.stock);
+    if (Number.isFinite(candidateStock) && (!Number.isFinite(existingStock) || candidateStock > existingStock)) {
+      raw[key] = value;
+    }
+  });
   const sold = getSoldCountsByItem();
   const allItems = Array.from(new Set([...PRODUCT_CATALOG, ...Object.keys(raw || {}), ...Object.keys(sold || {})]));
   return allItems.map((item) => {
@@ -425,7 +443,13 @@ function getInventorySnapshot() {
 }
 
 function getPriceMap() {
-  const raw = readJson(PRICES_FILE, {});
+  const rawSource = readJson(PRICES_FILE, {});
+  const raw = {};
+  Object.entries(rawSource || {}).forEach(([item, value]) => {
+    const key = normalizeItemName(item);
+    if (!key) return;
+    raw[key] = value;
+  });
   const merged = { ...DEFAULT_PRICES };
   Object.entries(raw || {}).forEach(([item, value]) => {
     const price = Number(value);
@@ -547,8 +571,14 @@ function isGenericItemsLabel(value) {
   return /^\d+\s+items?$/.test(label) || label === "stonehorn item";
 }
 
-function getSkuForItem(itemName) {
+function normalizeItemName(itemName) {
   const name = String(itemName || "").trim();
+  if (!name) return "";
+  return LEGACY_ITEM_NAME_MAP[name] || name;
+}
+
+function getSkuForItem(itemName) {
+  const name = normalizeItemName(itemName);
   if (!name) return "SH-CUS-000000";
   if (PRODUCT_SKUS[name]) return PRODUCT_SKUS[name];
   const digest = crypto.createHash("sha1").update(name.toLowerCase()).digest("hex").slice(0, 6).toUpperCase();
@@ -1794,7 +1824,7 @@ async function handleApi(req, res, urlObj) {
     } catch {
       return json(res, 400, { error: "Invalid JSON body" });
     }
-    const item = String(data.item || "Stonehorn Hat").slice(0, 120);
+    const item = normalizeItemName(String(data.item || "Stonehorn Hat").slice(0, 120));
     const quantity = Math.max(1, Math.min(10, Number(data.quantity || 1)));
     const requestedUnitPrice = Number(data.unitPrice || 42);
     const priceMap = getPriceMap();
@@ -1805,10 +1835,11 @@ async function handleApi(req, res, urlObj) {
             item: String(entry.item || "").slice(0, 120),
             quantity: Math.max(1, Math.min(10, Number(entry.quantity || 1))),
             unitPrice: Number.isFinite(priceMap[String(entry.item || "").slice(0, 120)])
-              ? Number(priceMap[String(entry.item || "").slice(0, 120)])
+              ? Number(priceMap[normalizeItemName(String(entry.item || "").slice(0, 120))])
               : Number(entry.unitPrice || 0),
             sku: getSkuForItem(String(entry.item || "").slice(0, 120)),
           }))
+          .map((entry) => ({ ...entry, item: normalizeItemName(entry.item) }))
           .filter((entry) => entry.item && Number.isFinite(entry.unitPrice) && entry.unitPrice > 0)
       : [
           {
