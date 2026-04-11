@@ -662,6 +662,82 @@ function getBraggingEntryFromStripeSession(sessionObj) {
   }
 }
 
+function isOrderFullyRefunded(order) {
+  return String(order?.refundStatus || "").toLowerCase() === "refunded";
+}
+
+function findOrderByStripeRefs(orders, refs = {}) {
+  const sessionId = String(refs.sessionId || "").trim();
+  const paymentIntentId = String(refs.paymentIntentId || "").trim();
+  const chargeId = String(refs.chargeId || "").trim();
+  if (!Array.isArray(orders) || (!sessionId && !paymentIntentId && !chargeId)) return null;
+  return (
+    orders.find((order) => {
+      if (sessionId && String(order?.stripeSessionId || "").trim() === sessionId) return true;
+      if (paymentIntentId && String(order?.stripePaymentIntentId || "").trim() === paymentIntentId) return true;
+      if (chargeId && String(order?.stripeChargeId || "").trim() === chargeId) return true;
+      return false;
+    }) || null
+  );
+}
+
+function applyRefundToOrder(order, details = {}) {
+  if (!order) return false;
+  const previousStatus = String(order.refundStatus || "").toLowerCase();
+  const previousAmount = Math.max(0, Number(order.refundAmount || 0));
+  const amountTotal = Math.max(0, Number(order.amountTotal || order.unitAmount || 0));
+  const incomingAmount = Math.max(0, Number(details.amountRefunded || 0));
+  const nextAmount = Math.max(previousAmount, incomingAmount);
+  const fullyRefunded = Boolean(details.fullyRefunded) || (amountTotal > 0 && nextAmount >= amountTotal);
+  const nextStatus = fullyRefunded ? "refunded" : nextAmount > 0 ? "partial" : "none";
+  let changed = false;
+
+  if (nextStatus !== previousStatus) {
+    order.refundStatus = nextStatus;
+    changed = true;
+  }
+  if (nextAmount !== previousAmount) {
+    order.refundAmount = nextAmount;
+    changed = true;
+  }
+  if (nextStatus !== "none") {
+    const eventTs = Number(details.eventTimestamp || 0);
+    const refundIso = Number.isFinite(eventTs) && eventTs > 0 ? new Date(eventTs * 1000).toISOString() : new Date().toISOString();
+    if (order.refundedAt !== refundIso) {
+      order.refundedAt = refundIso;
+      changed = true;
+    }
+  }
+  if (details.eventType && order.refundEvent !== details.eventType) {
+    order.refundEvent = details.eventType;
+    changed = true;
+  }
+  if (details.chargeId && order.stripeChargeId !== details.chargeId) {
+    order.stripeChargeId = details.chargeId;
+    changed = true;
+  }
+  if (details.paymentIntentId && order.stripePaymentIntentId !== details.paymentIntentId) {
+    order.stripePaymentIntentId = details.paymentIntentId;
+    changed = true;
+  }
+
+  const nextPaymentStatus = nextStatus === "refunded" ? "refunded" : nextStatus === "partial" ? "partially_refunded" : "paid";
+  if (order.paymentStatus !== nextPaymentStatus) {
+    order.paymentStatus = nextPaymentStatus;
+    changed = true;
+  }
+
+  if (nextStatus === "refunded" && order.status !== "shipped" && order.status !== "cancelled") {
+    order.status = "cancelled";
+    order.cancelReason = "refunded";
+    if (!order.cancelledAt) {
+      order.cancelledAt = new Date().toISOString();
+    }
+    changed = true;
+  }
+  return changed;
+}
+
 function verifyStripeWebhookSignature(payload, signatureHeader, secret) {
   if (!secret) return false;
   const { t, v1 } = parseStripeSignature(signatureHeader);
@@ -1178,12 +1254,19 @@ async function handleApi(req, res, urlObj) {
       const metaToken = entryFromSession.token;
       const metaPath = entryFromSession.path;
       const metaItemList = String(sessionObj?.metadata?.itemList || "").trim();
+      const paymentIntentId = String(sessionObj?.payment_intent || "").trim();
       const existing = orders.find((o) => o.stripeSessionId === sessionObj.id);
       if (existing) {
-        existing.status = "paid";
+        if (!isOrderFullyRefunded(existing)) {
+          existing.status = "paid";
+          existing.paymentStatus = "paid";
+        }
         existing.paidAt = new Date().toISOString();
         existing.amountTotal = sessionObj.amount_total || existing.amountTotal || 0;
         existing.customerEmail = sessionObj.customer_details?.email || existing.customerEmail || "";
+        if (paymentIntentId) {
+          existing.stripePaymentIntentId = paymentIntentId;
+        }
         if (!existing.braggingEntry && metaToken) {
           existing.braggingEntry = {
             token: metaToken,
@@ -1201,10 +1284,14 @@ async function handleApi(req, res, urlObj) {
         orders.push({
           stripeSessionId: sessionObj.id,
           status: "paid",
+          paymentStatus: "paid",
+          refundStatus: "none",
+          refundAmount: 0,
           paidAt: new Date().toISOString(),
           item: sessionObj?.metadata?.item || "Stonehorn Item",
           itemList: metaItemList || "",
           amountTotal: sessionObj.amount_total || 0,
+          stripePaymentIntentId: paymentIntentId || "",
           customerEmail: sessionObj.customer_details?.email || "",
           braggingEntry: metaToken
             ? {
@@ -1257,6 +1344,50 @@ async function handleApi(req, res, urlObj) {
       }
       writeJson(ORDERS_FILE, orders);
       await processLowStockAlerts();
+    } else if (event.type === "charge.refunded") {
+      const chargeObj = event.data?.object || {};
+      const paymentIntentId = String(chargeObj.payment_intent || "").trim();
+      const chargeId = String(chargeObj.id || "").trim();
+      const amountRefunded = Math.max(0, Number(chargeObj.amount_refunded || 0));
+      const amountCharged = Math.max(0, Number(chargeObj.amount || 0));
+      const fullyRefunded = Boolean(chargeObj.refunded) || (amountCharged > 0 && amountRefunded >= amountCharged);
+      const orders = readJson(ORDERS_FILE, []);
+      const order = findOrderByStripeRefs(orders, { paymentIntentId, chargeId });
+      if (order) {
+        const changed = applyRefundToOrder(order, {
+          eventType: event.type,
+          eventTimestamp: Number(event.created || 0),
+          paymentIntentId,
+          chargeId,
+          amountRefunded,
+          fullyRefunded,
+        });
+        if (changed) {
+          writeJson(ORDERS_FILE, orders);
+        }
+      }
+    } else if (event.type === "payment_intent.succeeded") {
+      const paymentIntentObj = event.data?.object || {};
+      const paymentIntentId = String(paymentIntentObj.id || "").trim();
+      const chargeId = String(paymentIntentObj.latest_charge || "").trim();
+      if (paymentIntentId) {
+        const orders = readJson(ORDERS_FILE, []);
+        const order = findOrderByStripeRefs(orders, { paymentIntentId, chargeId });
+        if (order) {
+          let changed = false;
+          if (order.stripePaymentIntentId !== paymentIntentId) {
+            order.stripePaymentIntentId = paymentIntentId;
+            changed = true;
+          }
+          if (chargeId && order.stripeChargeId !== chargeId) {
+            order.stripeChargeId = chargeId;
+            changed = true;
+          }
+          if (changed) {
+            writeJson(ORDERS_FILE, orders);
+          }
+        }
+      }
     }
     return text(res, 200, "ok");
   }
@@ -1748,6 +1879,9 @@ async function handleApi(req, res, urlObj) {
       orders.push({
         stripeSessionId: stripeSession.id,
         status: "created",
+        paymentStatus: "created",
+        refundStatus: "none",
+        refundAmount: 0,
         createdAt: new Date().toISOString(),
         sessionId: sid,
         item: orderDisplayItem,
@@ -1796,10 +1930,25 @@ async function handleApi(req, res, urlObj) {
       const metadataToken = entryFromSession.token;
       const metadataPath = entryFromSession.path;
       const metadataItemList = String(stripeSession?.metadata?.itemList || "").trim();
+      const paymentIntentId = String(stripeSession?.payment_intent || "").trim();
 
       if (paid && order) {
-        if (order.status !== "paid" && order.status !== "packed" && order.status !== "shipped") {
+        if (paymentIntentId && order.stripePaymentIntentId !== paymentIntentId) {
+          order.stripePaymentIntentId = paymentIntentId;
+          orderUpdated = true;
+        }
+        if (
+          !isOrderFullyRefunded(order) &&
+          order.status !== "paid" &&
+          order.status !== "packed" &&
+          order.status !== "shipped" &&
+          order.status !== "cancelled"
+        ) {
           order.status = "paid";
+          orderUpdated = true;
+        }
+        if (order.paymentStatus !== "paid" && !isOrderFullyRefunded(order)) {
+          order.paymentStatus = "paid";
           orderUpdated = true;
         }
         if (!order.paidAt) {

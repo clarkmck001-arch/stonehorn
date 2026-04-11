@@ -287,6 +287,26 @@ const getOrderSkuSummary = (order) => {
   return Array.from(skuSet).join(", ");
 };
 
+const getRefundState = (order) => {
+  const raw = String(order?.refundStatus || "").trim().toLowerCase();
+  const amount = Math.max(0, Number(order?.refundAmount || 0)) / 100;
+  if (raw === "refunded") {
+    return {
+      label: amount > 0 ? `Refunded ($${amount.toFixed(2)})` : "Refunded",
+      className: "fulfillment-bad",
+      isFull: true,
+    };
+  }
+  if (raw === "partial") {
+    return {
+      label: amount > 0 ? `Partially Refunded ($${amount.toFixed(2)})` : "Partially Refunded",
+      className: "fulfillment-neutral",
+      isFull: false,
+    };
+  }
+  return { label: "", className: "", isFull: false };
+};
+
 const formatAddressForDisplay = (order) => {
   const address = order?.shippingAddress;
   if (!address) return "N/A";
@@ -1064,6 +1084,7 @@ const renderAdminOrders = (items) => {
       const orderNum = formatOrderNumber(item.stripeSessionId);
       const itemSummary = formatOrderItemsLabel(item);
       const skuSummary = getOrderSkuSummary(item);
+      const refundState = getRefundState(item);
       const fulfillmentState =
         item.status === "shipped"
           ? "Shipped"
@@ -1071,6 +1092,8 @@ const renderAdminOrders = (items) => {
             ? "Packed"
             : item.status === "paid"
               ? "Unfulfilled"
+              : item.status === "cancelled" && refundState.isFull
+                ? "Cancelled (Refunded)"
               : item.status || "Unknown";
       const fulfillmentClass =
         item.status === "shipped" || item.status === "packed"
@@ -1092,6 +1115,7 @@ const renderAdminOrders = (items) => {
         <p class="small">Email: ${item.customerEmail || "N/A"}</p>
         <p class="small">Status: ${item.status || "unknown"} | Paid: ${paidDate}</p>
         <p class="small ${fulfillmentClass}">Fulfillment: ${fulfillmentState}${shippedDate ? ` (${shippedDate})` : ""}</p>
+        ${refundState.label ? `<p class="small ${refundState.className}">Payment: ${escapeHtml(refundState.label)}</p>` : ""}
         ${trackingSummary ? `<p class="small">Tracking: ${trackingSummary}</p>` : ""}
         <p class="small">Confirmation Email: ${emailState}</p>
       </article>
@@ -1212,8 +1236,9 @@ const renderFulfillmentOrders = (items) => {
   fulfillmentList.innerHTML = items
     .map((item) => {
       const amount = Number(item.amountTotal || item.unitAmount || 0) / 100;
-      const canPack = item.status === "paid";
-      const canShip = item.status === "paid" || item.status === "packed";
+      const refundState = getRefundState(item);
+      const canPack = item.status === "paid" && !refundState.isFull;
+      const canShip = (item.status === "paid" || item.status === "packed") && !refundState.isFull;
       const orderDateRaw = item.paidAt || item.createdAt || "";
       const orderDate = orderDateRaw ? new Date(orderDateRaw).toLocaleString() : "N/A";
       const itemSummary = formatOrderItemsLabel(item);
@@ -1232,6 +1257,7 @@ const renderFulfillmentOrders = (items) => {
           <p class="small">Customer: ${escapeHtml(item.customerEmail || "N/A")}</p>
           <p class="small">Ship To: ${escapeHtml(address)}</p>
           <p class="small">Status: ${escapeHtml(item.status || "unknown")}</p>
+          ${refundState.label ? `<p class="small ${refundState.className}">Payment: ${escapeHtml(refundState.label)}</p>` : ""}
           ${
             item.trackingNumber
               ? `<p class="small">Tracking: ${escapeHtml(item.carrier || "")} ${escapeHtml(item.trackingNumber || "")}</p>`
