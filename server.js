@@ -1084,18 +1084,40 @@ function sendStatic(reqPath, res) {
 }
 
 function sendUploadedFile(reqPath, res) {
-  const filename = path.basename(String(reqPath || ""));
-  const filePath = path.join(UPLOAD_DIR, filename);
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+  const normalizedReq = String(reqPath || "").replace(/^\/+/, "");
+  const relativeUploadsPath = normalizedReq.replace(/^uploads\/+/i, "");
+  const safeRelative = path.normalize(relativeUploadsPath).replace(/^(\.\.(\/|\\|$))+/, "");
+  if (!safeRelative || safeRelative.startsWith("..")) {
     text(res, 404, "Not found");
     return;
   }
-  const ext = path.extname(filePath).toLowerCase();
+
+  const candidates = [
+    path.join(UPLOAD_DIR, safeRelative),
+    path.join(UPLOAD_DIR, path.basename(safeRelative)),
+    path.join(ROOT, "uploads", safeRelative),
+    path.join(ROOT, "uploads", path.basename(safeRelative)),
+  ];
+
+  const filePath = candidates.find((candidate) => {
+    try {
+      return fs.existsSync(candidate) && !fs.statSync(candidate).isDirectory();
+    } catch {
+      return false;
+    }
+  });
+
+  if (!filePath) {
+    text(res, 404, "Not found");
+    return;
+  }
+  const ext = path.extname(String(filePath)).toLowerCase();
   const types = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
+    ".gif": "image/gif",
   };
   res.writeHead(200, {
     "Content-Type": types[ext] || "application/octet-stream",

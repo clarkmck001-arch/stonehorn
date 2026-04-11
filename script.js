@@ -100,6 +100,7 @@ let adminPriceMap = new Map();
 let recentBoardOffset = 0;
 let recentBoardTotal = 0;
 const RECENT_BOARD_PAGE_SIZE = 12;
+let boardAdminMode = false;
 const PRODUCT_IMAGE_MAP = {
   "Black Leather Patch Hat": "./IMG_7923.PNG",
   "Embroidered Text Hat": "./IMG_7935.jpg",
@@ -629,6 +630,12 @@ const getAuthMe = async () => {
   return data;
 };
 
+const initBoardAdminMode = async () => {
+  if (!recentGrid) return;
+  const me = await getAuthMe();
+  boardAdminMode = me.role === "admin";
+};
+
 const getCheckoutProfile = async () => {
   const { ok, data } = await jsonFetch("/api/profile/checkout", { method: "GET" });
   if (!ok) return null;
@@ -736,6 +743,11 @@ const renderRecentBoardCards = (items, append = false) => {
     .map(
       (item) => `
       <article class="recent-card reveal is-visible">
+        ${
+          boardAdminMode
+            ? `<button class="recent-delete-btn" data-id="${escapeHtml(item.id || "")}" type="button" aria-label="Delete post">×</button>`
+            : ""
+        }
         <img src="${escapeHtml(item.imagePath)}" alt="${escapeHtml(item.trophyType || "Bragging board entry")}" loading="lazy" />
         <p class="small"><strong>${escapeHtml(item.name || "Stonehorn Hunter")}</strong></p>
         <p class="small">${escapeHtml(item.trophyType || "Trophy Entry")}</p>
@@ -791,6 +803,24 @@ const loadRecentBoard = async ({ append = false } = {}) => {
 if (recentLoadMoreBtn) {
   recentLoadMoreBtn.addEventListener("click", async () => {
     await loadRecentBoard({ append: true });
+  });
+}
+
+if (recentGrid) {
+  recentGrid.addEventListener("click", async (event) => {
+    const btn = event.target.closest(".recent-delete-btn");
+    if (!btn || !boardAdminMode) return;
+    const id = String(btn.getAttribute("data-id") || "").trim();
+    if (!id) return;
+    const confirmed = window.confirm("Delete this bragging board post?");
+    if (!confirmed) return;
+    const { ok, data } = await jsonFetch(`/api/admin/submissions/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!ok) {
+      if (boardStatus) boardStatus.textContent = data.error || "Could not delete post.";
+      return;
+    }
+    if (boardStatus) boardStatus.textContent = "Post deleted.";
+    await loadRecentBoard({ append: false });
   });
 }
 
@@ -1830,7 +1860,7 @@ if (window.location.pathname.endsWith("/success.html") && checkoutStatus) {
 loadPublicPricing();
 renderCart();
 loadPublicInventory();
-loadRecentBoard();
+initBoardAdminMode().then(() => loadRecentBoard());
 initAdminPages();
 initFulfillmentPage();
 loadSiteAnnouncement();
