@@ -59,6 +59,7 @@ const INVENTORY_FILE = path.join(DATA_DIR, "inventory.json");
 const PRICES_FILE = path.join(DATA_DIR, "prices.json");
 const LOW_STOCK_ALERTS_FILE = path.join(DATA_DIR, "low-stock-alerts.json");
 const ANNOUNCEMENT_FILE = path.join(DATA_DIR, "announcement.json");
+const STAFF_NOTIFICATIONS_FILE = path.join(DATA_DIR, "staff-notifications.json");
 const SQLITE_FILE = path.join(DATA_DIR, "stonehorn.db");
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMITS = {
@@ -232,6 +233,7 @@ async function bootstrapStorage() {
     updatedAt: null,
     updatedBy: "",
   });
+  ensureJsonFile(STAFF_NOTIFICATIONS_FILE, []);
 }
 
 function getStoreKey(filePath) {
@@ -736,6 +738,29 @@ function applyRefundToOrder(order, details = {}) {
     changed = true;
   }
   return changed;
+}
+
+function createOrderPaidNotification(order) {
+  const orderId = String(order?.stripeSessionId || "").trim();
+  if (!orderId) return;
+  const notifications = readJson(STAFF_NOTIFICATIONS_FILE, []);
+  const exists = notifications.some(
+    (entry) => String(entry?.type || "") === "order_paid" && String(entry?.orderId || "") === orderId
+  );
+  if (exists) return;
+  const amountCents = Math.max(0, Number(order?.amountTotal || order?.unitAmount || 0));
+  notifications.unshift({
+    id: crypto.randomBytes(8).toString("hex"),
+    type: "order_paid",
+    orderId,
+    shortOrderId: formatOrderNumber(orderId),
+    customerEmail: String(order?.customerEmail || "").trim(),
+    item: formatOrderItems(order),
+    amountTotal: amountCents,
+    createdAt: new Date().toISOString(),
+    readBy: { admin: false, worker: false },
+  });
+  writeJson(STAFF_NOTIFICATIONS_FILE, notifications.slice(0, 200));
 }
 
 function verifyStripeWebhookSignature(payload, signatureHeader, secret) {
@@ -1314,6 +1339,7 @@ async function handleApi(req, res, urlObj) {
           order.item = displayItems;
           if (!order.itemList) order.itemList = displayItems;
         }
+        createOrderPaidNotification(order);
       }
       if (order && !order.emailSentAt) {
         const entryToken = order?.braggingEntry?.token || "";
@@ -2017,6 +2043,7 @@ async function handleApi(req, res, urlObj) {
           }
           orderUpdated = true;
         }
+        createOrderPaidNotification(order);
       }
 
       if (orderUpdated) {
@@ -2040,6 +2067,62 @@ async function handleApi(req, res, urlObj) {
     } catch (error) {
       return json(res, 500, { error: error.message });
     }
+  }
+
+  if (req.method === "GET" && urlObj.pathname === "/api/staff/notifications") {
+    if (!canFulfillSession(session)) {
+      return json(res, 401, { error: "Worker or admin auth required" });
+    }
+    const roleKey = session.role === "admin" ? "admin" : "worker";
+    const limitRaw = Number(urlObj.searchParams.get("limit") || 12);
+    const limit = Math.max(1, Math.min(50, Number.isFinite(limitRaw) ? Math.floor(limitRaw) : 12));
+    const notifications = readJson(STAFF_NOTIFICATIONS_FILE, [])
+      .slice()
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    const unreadCount = notifications.filter((entry) => !Boolean(entry?.readBy?.[roleKey])).length;
+    const items = notifications.slice(0, limit).map((entry) => ({
+      id: entry.id,
+      type: entry.type || "order_paid",
+      orderId: entry.orderId || "",
+      shortOrderId: entry.shortOrderId || formatOrderNumber(entry.orderId || ""),
+      customerEmail: entry.customerEmail || "",
+      item: entry.item || "Stonehorn Item",
+      amountTotal: Number(entry.amountTotal || 0),
+      createdAt: entry.createdAt || "",
+      unread: !Boolean(entry?.readBy?.[roleKey]),
+    }));
+    return json(res, 200, { items, unreadCount });
+  }
+
+  if (req.method === "POST" && urlObj.pathname === "/api/staff/notifications/mark-read") {
+    if (!canFulfillSession(session)) {
+      return json(res, 401, { error: "Worker or admin auth required" });
+    }
+    let data = {};
+    try {
+      data = JSON.parse(await readBody(req) || "{}");
+    } catch {
+      data = {};
+    }
+    const roleKey = session.role === "admin" ? "admin" : "worker";
+    const targetId = String(data.id || "").trim();
+    const notifications = readJson(STAFF_NOTIFICATIONS_FILE, []);
+    let changed = false;
+    notifications.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+      if (!entry.readBy || typeof entry.readBy !== "object") {
+        entry.readBy = { admin: false, worker: false };
+      }
+      if (targetId && String(entry.id || "") !== targetId) return;
+      if (!entry.readBy[roleKey]) {
+        entry.readBy[roleKey] = true;
+        changed = true;
+      }
+    });
+    if (changed) {
+      writeJson(STAFF_NOTIFICATIONS_FILE, notifications);
+    }
+    return json(res, 200, { ok: true });
   }
 
   if (req.method === "GET" && urlObj.pathname === "/api/worker/orders") {

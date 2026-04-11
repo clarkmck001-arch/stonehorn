@@ -33,6 +33,14 @@
       <section class="section reveal">
         <p class="eyebrow">Fulfillment Dashboard</p>
         <h2>Pack and ship paid orders.</h2>
+        <div class="board-form hidden" id="staff-notify-box">
+          <div class="hunter-gate-actions">
+            <p class="small" id="staff-notify-count">No new orders.</p>
+            <button class="btn btn-ghost btn-sm" id="staff-notify-refresh-btn" type="button">Refresh Alerts</button>
+            <button class="btn btn-sm" id="staff-notify-mark-read-btn" type="button">Mark Alerts Read</button>
+          </div>
+          <div id="staff-notify-list"></div>
+        </div>
         <div class="board-form" id="worker-auth-box">
           <label for="worker-email">Worker Email</label>
           <input id="worker-email" type="email" placeholder="worker@stonehorn.local" />
@@ -78,6 +86,6 @@
       </nav>
     </footer>
 
-    <script src="./script.js?v=20260410m"></script>
+    <script src="./script.js?v=20260411a"></script>
   </body>
 </html>

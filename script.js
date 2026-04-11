@@ -57,6 +57,11 @@ const workerPassword = document.querySelector("#worker-password");
 const workerStatus = document.querySelector("#worker-status");
 const workerAuthBox = document.querySelector("#worker-auth-box");
 const fulfillmentList = document.querySelector("#fulfillment-list");
+const staffNotifyBox = document.querySelector("#staff-notify-box");
+const staffNotifyCount = document.querySelector("#staff-notify-count");
+const staffNotifyList = document.querySelector("#staff-notify-list");
+const staffNotifyRefreshBtn = document.querySelector("#staff-notify-refresh-btn");
+const staffNotifyMarkReadBtn = document.querySelector("#staff-notify-mark-read-btn");
 
 const loginForm = document.querySelector("#login-form");
 const signupForm = document.querySelector("#signup-form");
@@ -101,6 +106,8 @@ let recentBoardOffset = 0;
 let recentBoardTotal = 0;
 const RECENT_BOARD_PAGE_SIZE = 12;
 let boardAdminMode = false;
+let staffNotifyPollTimer = null;
+let lastStaffUnreadCount = 0;
 const PRODUCT_IMAGE_MAP = {
   "Black Leather Patch Hat": "./IMG_7923.PNG",
   "Embroidered Text Hat": "./IMG_7935.jpg",
@@ -376,6 +383,66 @@ const printPackingSlip = (order) => {
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
+};
+
+const renderStaffNotifications = (items, unreadCount) => {
+  if (!staffNotifyBox || !staffNotifyList || !staffNotifyCount) return;
+  const safeItems = Array.isArray(items) ? items : [];
+  staffNotifyBox.classList.remove("hidden");
+  staffNotifyCount.textContent =
+    unreadCount > 0 ? `${unreadCount} new order${unreadCount === 1 ? "" : "s"}.` : "No new orders.";
+  if (!safeItems.length) {
+    staffNotifyList.innerHTML = '<p class="small">No order notifications yet.</p>';
+    return;
+  }
+  staffNotifyList.innerHTML = safeItems
+    .slice(0, 8)
+    .map((entry) => {
+      const ts = entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "";
+      const amount = Math.max(0, Number(entry.amountTotal || 0)) / 100;
+      const unreadClass = entry.unread ? "fulfillment-bad" : "";
+      return `<p class="small ${unreadClass}">Order ${escapeHtml(entry.shortOrderId || "N/A")} | $${amount.toFixed(
+        2
+      )} | ${escapeHtml(entry.customerEmail || "N/A")} ${ts ? `| ${escapeHtml(ts)}` : ""}</p>`;
+    })
+    .join("");
+};
+
+const loadStaffNotifications = async (options = {}) => {
+  if (!staffNotifyBox || !staffNotifyList || !staffNotifyCount) return;
+  const { silent = false } = options;
+  const { ok, data } = await jsonFetch("/api/staff/notifications?limit=12", { method: "GET" });
+  if (!ok) {
+    if (!silent) {
+      staffNotifyBox.classList.add("hidden");
+    }
+    return;
+  }
+  const unreadCount = Math.max(0, Number(data.unreadCount || 0));
+  renderStaffNotifications(Array.isArray(data.items) ? data.items : [], unreadCount);
+  if (silent && unreadCount > lastStaffUnreadCount) {
+    const delta = unreadCount - lastStaffUnreadCount;
+    showToast(`New order alert: ${delta} new.`);
+  }
+  lastStaffUnreadCount = unreadCount;
+};
+
+const startStaffNotificationPolling = async () => {
+  if (!staffNotifyBox) return;
+  if (staffNotifyPollTimer) {
+    window.clearInterval(staffNotifyPollTimer);
+    staffNotifyPollTimer = null;
+  }
+  await loadStaffNotifications({ silent: false });
+  staffNotifyPollTimer = window.setInterval(() => {
+    loadStaffNotifications({ silent: true });
+  }, 20000);
+};
+
+const stopStaffNotificationPolling = () => {
+  if (!staffNotifyPollTimer) return;
+  window.clearInterval(staffNotifyPollTimer);
+  staffNotifyPollTimer = null;
 };
 
 const fileToDataUrl = (file) =>
@@ -1413,6 +1480,7 @@ if (adminLoginBtn && adminPassword) {
     await loadDropSubscribers();
     await loadAdminAnnouncement();
     await loadAdminInventory();
+    await startStaffNotificationPolling();
   });
 }
 
@@ -1588,6 +1656,7 @@ if (workerLoginBtn && workerPassword) {
     if (workerStatus) workerStatus.textContent = `Logged in as ${data.email || data.name || "staff"}.`;
     if (workerAuthBox) workerAuthBox.classList.add("hidden");
     await loadFulfillmentOrders();
+    await startStaffNotificationPolling();
   });
 }
 
@@ -1606,6 +1675,23 @@ if (workerOrderFilter) {
   });
 }
 
+if (staffNotifyRefreshBtn) {
+  staffNotifyRefreshBtn.addEventListener("click", async () => {
+    await loadStaffNotifications({ silent: false });
+  });
+}
+
+if (staffNotifyMarkReadBtn) {
+  staffNotifyMarkReadBtn.addEventListener("click", async () => {
+    const { ok } = await jsonFetch("/api/staff/notifications/mark-read", {
+      method: "POST",
+      body: JSON.stringify({ all: true }),
+    });
+    if (!ok) return;
+    await loadStaffNotifications({ silent: false });
+  });
+}
+
 const initAdminPages = async () => {
   if (!adminList && !adminOrdersList) return;
   const me = await getAuthMe();
@@ -1618,9 +1704,12 @@ const initAdminPages = async () => {
     await loadDropSubscribers();
     await loadAdminAnnouncement();
     await loadAdminInventory();
+    await startStaffNotificationPolling();
   } else {
     if (adminAuthBox) adminAuthBox.classList.remove("hidden");
     if (adminStatus) adminStatus.textContent = "Admin login required for this page.";
+    stopStaffNotificationPolling();
+    if (staffNotifyBox) staffNotifyBox.classList.add("hidden");
   }
 };
 
@@ -1632,9 +1721,12 @@ const initFulfillmentPage = async () => {
     if (workerStatus) workerStatus.textContent = `Logged in as ${me.email || me.name || "staff"}.`;
     if (workerEmail && !workerEmail.value) workerEmail.value = me.email || "";
     await loadFulfillmentOrders();
+    await startStaffNotificationPolling();
   } else {
     if (workerAuthBox) workerAuthBox.classList.remove("hidden");
     if (workerStatus) workerStatus.textContent = "Worker or admin login required for this page.";
+    stopStaffNotificationPolling();
+    if (staffNotifyBox) staffNotifyBox.classList.add("hidden");
   }
 };
 
