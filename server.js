@@ -106,9 +106,9 @@ const PRODUCT_CATALOG = [
 const PRODUCT_SKUS = {
   "Black Leather Patch Hat": "SH-HAT-001",
   "Embroidered Text Hat": "SH-HAT-002",
-  "Black Ibex Logo Hat": "SH-HAT-003",
+  "Black Ibex Logo Hat": "SH-HAT-005",
   "Blue Rope Hat": "SH-HAT-004",
-  "Cream Badge Hat": "SH-HAT-005",
+  "Cream Badge Hat": "SH-HAT-003",
   "Cream Mountain Script Hat": "SH-HAT-006",
   "Black Gold Ibex Hat": "SH-HAT-007",
   "Cream Backcountry Patch Hat": "SH-HAT-008",
