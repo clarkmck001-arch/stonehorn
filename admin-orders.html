@@ -38,7 +38,13 @@
             <p class="small" id="staff-notify-count">No new orders.</p>
             <button class="btn btn-ghost btn-sm" id="staff-notify-refresh-btn" type="button">Refresh Alerts</button>
             <button class="btn btn-sm" id="staff-notify-mark-read-btn" type="button">Mark Alerts Read</button>
+            <button class="btn btn-ghost btn-sm" id="staff-notify-clear-btn" type="button">Clear Alerts</button>
           </div>
+          <label class="small" for="staff-notify-desktop-toggle">
+            <input id="staff-notify-desktop-toggle" type="checkbox" />
+            Desktop notifications
+          </label>
+          <p class="small" id="staff-notify-desktop-status"></p>
           <div id="staff-notify-list"></div>
         </div>
         <div class="board-form" id="admin-auth-box">
@@ -142,6 +148,6 @@
       </nav>
     </footer>
 
-    <script src="./script.js?v=20260411b"></script>
+    <script src="./script.js?v=20260411c"></script>
   </body>
 </html>

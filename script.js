@@ -62,6 +62,9 @@ const staffNotifyCount = document.querySelector("#staff-notify-count");
 const staffNotifyList = document.querySelector("#staff-notify-list");
 const staffNotifyRefreshBtn = document.querySelector("#staff-notify-refresh-btn");
 const staffNotifyMarkReadBtn = document.querySelector("#staff-notify-mark-read-btn");
+const staffNotifyClearBtn = document.querySelector("#staff-notify-clear-btn");
+const staffNotifyDesktopToggle = document.querySelector("#staff-notify-desktop-toggle");
+const staffNotifyDesktopStatus = document.querySelector("#staff-notify-desktop-status");
 
 const loginForm = document.querySelector("#login-form");
 const signupForm = document.querySelector("#signup-form");
@@ -97,6 +100,7 @@ let siteAnnouncementText = document.querySelector("#site-announcement-text");
 let appToastTimer = null;
 
 const CHECKOUT_PREF_KEY = "stonehorn_save_checkout_pref";
+const STAFF_NOTIFY_DESKTOP_KEY = "stonehorn_staff_desktop_notify";
 const CART_KEY = "stonehorn_cart";
 let adminOrdersCache = [];
 let publicInventoryMap = new Map();
@@ -387,6 +391,50 @@ const printPackingSlip = (order) => {
   printWindow.print();
 };
 
+const getDesktopNotifyEnabled = () => localStorage.getItem(STAFF_NOTIFY_DESKTOP_KEY) === "true";
+
+const setDesktopNotifyEnabled = (enabled) => {
+  if (enabled) localStorage.setItem(STAFF_NOTIFY_DESKTOP_KEY, "true");
+  else localStorage.removeItem(STAFF_NOTIFY_DESKTOP_KEY);
+};
+
+const updateDesktopNotifyStatus = () => {
+  if (!staffNotifyDesktopStatus || !staffNotifyDesktopToggle) return;
+  const enabled = getDesktopNotifyEnabled();
+  const supported = typeof window !== "undefined" && "Notification" in window;
+  staffNotifyDesktopToggle.checked = enabled;
+  if (!supported) {
+    staffNotifyDesktopStatus.textContent = "Desktop notifications are not supported on this browser.";
+    return;
+  }
+  const permission = Notification.permission;
+  if (!enabled) {
+    staffNotifyDesktopStatus.textContent = "Desktop notifications are off.";
+    return;
+  }
+  if (permission === "granted") {
+    staffNotifyDesktopStatus.textContent = "Desktop notifications are on.";
+    return;
+  }
+  if (permission === "denied") {
+    staffNotifyDesktopStatus.textContent = "Browser blocked notifications. Enable them in browser settings.";
+    return;
+  }
+  staffNotifyDesktopStatus.textContent = "Desktop notifications are on (permission pending).";
+};
+
+const sendDesktopOrderNotification = (message) => {
+  const supported = typeof window !== "undefined" && "Notification" in window;
+  if (!supported || !getDesktopNotifyEnabled()) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    const n = new Notification("Stonehorn Order Alert", { body: message });
+    window.setTimeout(() => n.close(), 6000);
+  } catch {
+    // Ignore browser notification failures
+  }
+};
+
 const renderStaffNotifications = (items, unreadCount) => {
   if (!staffNotifyBox || !staffNotifyList || !staffNotifyCount) return;
   const safeItems = Array.isArray(items) ? items : [];
@@ -421,16 +469,22 @@ const loadStaffNotifications = async (options = {}) => {
     return;
   }
   const unreadCount = Math.max(0, Number(data.unreadCount || 0));
-  renderStaffNotifications(Array.isArray(data.items) ? data.items : [], unreadCount);
+  const items = Array.isArray(data.items) ? data.items : [];
+  renderStaffNotifications(items, unreadCount);
   if (silent && unreadCount > lastStaffUnreadCount) {
     const delta = unreadCount - lastStaffUnreadCount;
-    showToast(`New order alert: ${delta} new.`);
+    const latest = items.find((entry) => entry && entry.unread) || items[0];
+    const label = latest?.shortOrderId ? ` (${latest.shortOrderId})` : "";
+    const msg = `New order alert: ${delta} new${label}.`;
+    showToast(msg);
+    sendDesktopOrderNotification(msg);
   }
   lastStaffUnreadCount = unreadCount;
 };
 
 const startStaffNotificationPolling = async () => {
   if (!staffNotifyBox) return;
+  updateDesktopNotifyStatus();
   if (staffNotifyPollTimer) {
     window.clearInterval(staffNotifyPollTimer);
     staffNotifyPollTimer = null;
@@ -1692,6 +1746,52 @@ if (staffNotifyMarkReadBtn) {
     });
     if (!ok) return;
     await loadStaffNotifications({ silent: false });
+  });
+}
+
+if (staffNotifyClearBtn) {
+  staffNotifyClearBtn.addEventListener("click", async () => {
+    const { ok } = await jsonFetch("/api/staff/notifications/clear", {
+      method: "POST",
+      body: JSON.stringify({ all: true }),
+    });
+    if (!ok) return;
+    await loadStaffNotifications({ silent: false });
+    showToast("Alerts cleared.");
+  });
+}
+
+if (staffNotifyDesktopToggle) {
+  staffNotifyDesktopToggle.addEventListener("change", async () => {
+    const wantsEnabled = Boolean(staffNotifyDesktopToggle.checked);
+    const supported = typeof window !== "undefined" && "Notification" in window;
+    if (!supported) {
+      setDesktopNotifyEnabled(false);
+      updateDesktopNotifyStatus();
+      return;
+    }
+    if (!wantsEnabled) {
+      setDesktopNotifyEnabled(false);
+      updateDesktopNotifyStatus();
+      return;
+    }
+    if (Notification.permission === "granted") {
+      setDesktopNotifyEnabled(true);
+      updateDesktopNotifyStatus();
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setDesktopNotifyEnabled(false);
+      updateDesktopNotifyStatus();
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setDesktopNotifyEnabled(permission === "granted");
+    } catch {
+      setDesktopNotifyEnabled(false);
+    }
+    updateDesktopNotifyStatus();
   });
 }
 

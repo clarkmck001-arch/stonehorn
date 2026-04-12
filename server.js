@@ -789,6 +789,7 @@ function createOrderPaidNotification(order) {
     amountTotal: amountCents,
     createdAt: new Date().toISOString(),
     readBy: { admin: false, worker: false },
+    clearedBy: { admin: false, worker: false },
   });
   writeJson(STAFF_NOTIFICATIONS_FILE, notifications.slice(0, 200));
 }
@@ -2110,8 +2111,9 @@ async function handleApi(req, res, urlObj) {
     const notifications = readJson(STAFF_NOTIFICATIONS_FILE, [])
       .slice()
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    const unreadCount = notifications.filter((entry) => !Boolean(entry?.readBy?.[roleKey])).length;
-    const items = notifications.slice(0, limit).map((entry) => ({
+    const visible = notifications.filter((entry) => !Boolean(entry?.clearedBy?.[roleKey]));
+    const unreadCount = visible.filter((entry) => !Boolean(entry?.readBy?.[roleKey])).length;
+    const items = visible.slice(0, limit).map((entry) => ({
       id: entry.id,
       type: entry.type || "order_paid",
       orderId: entry.orderId || "",
@@ -2144,9 +2146,51 @@ async function handleApi(req, res, urlObj) {
       if (!entry.readBy || typeof entry.readBy !== "object") {
         entry.readBy = { admin: false, worker: false };
       }
+      if (!entry.clearedBy || typeof entry.clearedBy !== "object") {
+        entry.clearedBy = { admin: false, worker: false };
+      }
+      if (targetId && String(entry.id || "") !== targetId) return;
+      if (entry.clearedBy[roleKey]) return;
+      if (!entry.readBy[roleKey]) {
+        entry.readBy[roleKey] = true;
+        changed = true;
+      }
+    });
+    if (changed) {
+      writeJson(STAFF_NOTIFICATIONS_FILE, notifications);
+    }
+    return json(res, 200, { ok: true });
+  }
+
+  if (req.method === "POST" && urlObj.pathname === "/api/staff/notifications/clear") {
+    if (!canFulfillSession(session)) {
+      return json(res, 401, { error: "Worker or admin auth required" });
+    }
+    let data = {};
+    try {
+      data = JSON.parse(await readBody(req) || "{}");
+    } catch {
+      data = {};
+    }
+    const roleKey = session.role === "admin" ? "admin" : "worker";
+    const targetId = String(data.id || "").trim();
+    const notifications = readJson(STAFF_NOTIFICATIONS_FILE, []);
+    let changed = false;
+    notifications.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+      if (!entry.readBy || typeof entry.readBy !== "object") {
+        entry.readBy = { admin: false, worker: false };
+      }
+      if (!entry.clearedBy || typeof entry.clearedBy !== "object") {
+        entry.clearedBy = { admin: false, worker: false };
+      }
       if (targetId && String(entry.id || "") !== targetId) return;
       if (!entry.readBy[roleKey]) {
         entry.readBy[roleKey] = true;
+        changed = true;
+      }
+      if (!entry.clearedBy[roleKey]) {
+        entry.clearedBy[roleKey] = true;
         changed = true;
       }
     });
