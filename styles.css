@@ -531,7 +531,8 @@ h3 {
 }
 
 .orders-grid {
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 0.65rem;
 }
 
