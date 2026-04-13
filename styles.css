@@ -726,10 +726,16 @@ h3 {
 .inventory-row {
   display: grid;
   grid-template-columns: minmax(180px, 1.6fr) 110px 110px 90px 1fr;
+  min-width: 680px;
   gap: 0.55rem;
   align-items: center;
   padding: 0.35rem 0;
   border-bottom: 1px solid var(--line);
+}
+
+#inventory-list {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .inventory-row-head {
@@ -1149,7 +1155,17 @@ body.modal-open {
   }
 
   .inventory-row {
-    grid-template-columns: 1fr;
+    min-width: 640px;
+  }
+
+  /* Reduce expensive effects on phones so product images appear faster */
+  .hat-shot::before,
+  .hat-shot::after {
+    display: none;
+  }
+
+  .hat-shot img {
+    filter: none;
   }
 
   .footer {
