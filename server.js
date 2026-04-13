@@ -391,8 +391,18 @@ function getEmailLogoSrc() {
 function getSoldCountsByItem() {
   const orders = readJson(ORDERS_FILE, []);
   const sold = {};
+  const soldStatuses = new Set(["paid", "packed", "shipped"]);
   orders
-    .filter((order) => order.status === "paid")
+    .filter((order) => {
+      const status = String(order?.status || "")
+        .trim()
+        .toLowerCase();
+      if (!soldStatuses.has(status)) return false;
+      const paymentStatus = String(order?.paymentStatus || "")
+        .trim()
+        .toLowerCase();
+      return paymentStatus !== "refunded";
+    })
     .forEach((order) => {
       if (Array.isArray(order.cartItems) && order.cartItems.length) {
         order.cartItems.forEach((entry) => {
@@ -2512,17 +2522,20 @@ async function handleApi(req, res, urlObj) {
       return json(res, 400, { error: "items array is required." });
     }
     const raw = readJson(INVENTORY_FILE, {});
+    const soldByItem = getSoldCountsByItem();
     data.items.forEach((entry) => {
-      const item = String(entry.item || "").trim().slice(0, 120);
+      const item = normalizeItemName(String(entry.item || "").trim().slice(0, 120));
       if (!item) return;
       const stockRaw = entry.stock;
       if (stockRaw === null || stockRaw === "" || typeof stockRaw === "undefined") {
         raw[item] = { stock: null, updatedAt: new Date().toISOString() };
         return;
       }
-      const stock = Math.max(0, Math.floor(Number(stockRaw)));
-      if (!Number.isFinite(stock)) return;
-      raw[item] = { stock, updatedAt: new Date().toISOString() };
+      // Admin input is treated as current on-hand quantity.
+      const desiredRemaining = Math.max(0, Math.floor(Number(stockRaw)));
+      if (!Number.isFinite(desiredRemaining)) return;
+      const soldQty = Math.max(0, Math.floor(Number(soldByItem[item] || 0)));
+      raw[item] = { stock: soldQty + desiredRemaining, updatedAt: new Date().toISOString() };
     });
     writeJson(INVENTORY_FILE, raw);
     return json(res, 200, { ok: true, items: getInventorySnapshot() });
@@ -2548,7 +2561,7 @@ async function handleApi(req, res, urlObj) {
     }
     const raw = readJson(PRICES_FILE, {});
     data.items.forEach((entry) => {
-      const item = String(entry.item || "").trim().slice(0, 120);
+      const item = normalizeItemName(String(entry.item || "").trim().slice(0, 120));
       if (!item) return;
       const price = Number(entry.price);
       if (!Number.isFinite(price) || price <= 0) return;

@@ -1388,7 +1388,7 @@ const renderAdminInventory = (items) => {
   const header = `
     <div class="inventory-row inventory-row-head">
       <p class="small"><strong>Item</strong></p>
-      <p class="small"><strong>Stock</strong></p>
+      <p class="small"><strong>On Hand</strong></p>
       <p class="small"><strong>Price</strong></p>
       <p class="small"><strong>Clicks</strong></p>
       <p class="small"><strong>Remaining</strong></p>
@@ -1396,7 +1396,7 @@ const renderAdminInventory = (items) => {
   `;
   inventoryList.innerHTML = items
     .map((entry) => {
-      const stockVal = entry.stock === null || typeof entry.stock === "undefined" ? "" : String(entry.stock);
+      const stockVal = entry.remaining === null || typeof entry.remaining === "undefined" ? "" : String(entry.remaining);
       const priceVal = Number(adminPriceMap.get(entry.item) || 0).toFixed(2);
       const skuLabel = String(PRODUCT_SKUS[String(entry.item || "").trim()] || "N/A");
       const clickCount = Math.max(0, Number(entry.clickCount || 0));
