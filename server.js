@@ -60,6 +60,7 @@ const PRICES_FILE = path.join(DATA_DIR, "prices.json");
 const LOW_STOCK_ALERTS_FILE = path.join(DATA_DIR, "low-stock-alerts.json");
 const ANNOUNCEMENT_FILE = path.join(DATA_DIR, "announcement.json");
 const STAFF_NOTIFICATIONS_FILE = path.join(DATA_DIR, "staff-notifications.json");
+const PRODUCT_CLICKS_FILE = path.join(DATA_DIR, "product-clicks.json");
 const SQLITE_FILE = path.join(DATA_DIR, "stonehorn.db");
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMITS = {
@@ -238,6 +239,7 @@ async function bootstrapStorage() {
     updatedBy: "",
   });
   ensureJsonFile(STAFF_NOTIFICATIONS_FILE, []);
+  ensureJsonFile(PRODUCT_CLICKS_FILE, {});
 }
 
 function getStoreKey(filePath) {
@@ -408,6 +410,26 @@ function getSoldCountsByItem() {
   return sold;
 }
 
+function getProductClickMap() {
+  const raw = readJson(PRODUCT_CLICKS_FILE, {});
+  const normalized = {};
+  Object.entries(raw || {}).forEach(([item, value]) => {
+    const key = normalizeItemName(item);
+    if (!key) return;
+    const count = Math.max(0, Math.floor(Number(value || 0)));
+    normalized[key] = (normalized[key] || 0) + count;
+  });
+  return normalized;
+}
+
+function incrementProductClick(itemName) {
+  const item = normalizeItemName(itemName);
+  if (!item) return;
+  const raw = readJson(PRODUCT_CLICKS_FILE, {});
+  raw[item] = Math.max(0, Math.floor(Number(raw[item] || 0))) + 1;
+  writeJson(PRODUCT_CLICKS_FILE, raw);
+}
+
 function getInventorySnapshot() {
   const rawSource = readJson(INVENTORY_FILE, {});
   const raw = {};
@@ -425,7 +447,10 @@ function getInventorySnapshot() {
     }
   });
   const sold = getSoldCountsByItem();
-  const allItems = Array.from(new Set([...PRODUCT_CATALOG, ...Object.keys(raw || {}), ...Object.keys(sold || {})]));
+  const clicks = getProductClickMap();
+  const allItems = Array.from(
+    new Set([...PRODUCT_CATALOG, ...Object.keys(raw || {}), ...Object.keys(sold || {}), ...Object.keys(clicks || {})])
+  );
   return allItems.map((item) => {
     const stockRaw = raw?.[item]?.stock;
     const stock = Number.isFinite(stockRaw) ? Math.max(0, Math.floor(stockRaw)) : null;
@@ -435,6 +460,7 @@ function getInventorySnapshot() {
       item,
       stock,
       sold: soldQty,
+      clickCount: Math.max(0, Number(clicks[item] || 0)),
       remaining,
       inStock: stock === null ? true : remaining > 0,
       lowStock: stock !== null && remaining > 0 && remaining <= 5,
@@ -1804,6 +1830,19 @@ async function handleApi(req, res, urlObj) {
 
   if (req.method === "GET" && urlObj.pathname === "/api/announcement") {
     return json(res, 200, getAnnouncement());
+  }
+
+  if (req.method === "POST" && urlObj.pathname === "/api/product-click") {
+    let data;
+    try {
+      data = JSON.parse(await readBody(req));
+    } catch {
+      return json(res, 400, { error: "Invalid JSON body" });
+    }
+    const item = normalizeItemName(String(data.item || "").trim().slice(0, 120));
+    if (!item) return json(res, 400, { error: "item is required" });
+    incrementProductClick(item);
+    return json(res, 200, { ok: true });
   }
 
   if (req.method === "GET" && urlObj.pathname === "/api/shop/hat-checkout") {

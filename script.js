@@ -112,6 +112,7 @@ const RECENT_BOARD_PAGE_SIZE = 12;
 let boardAdminMode = false;
 let staffNotifyPollTimer = null;
 let lastStaffUnreadCount = 0;
+let productZoomModal = null;
 const PRODUCT_IMAGE_MAP = {
   "Black Leather Patch Hat": "./IMG_7923.PNG",
   "Embroidered Text Hat": "./IMG_7935.jpg",
@@ -389,6 +390,78 @@ const printPackingSlip = (order) => {
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
+};
+
+const ensureProductZoomModal = () => {
+  if (productZoomModal) return productZoomModal;
+  const modal = document.createElement("div");
+  modal.className = "product-zoom-modal hidden";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="product-zoom-backdrop" data-action="close"></div>
+    <div class="product-zoom-dialog" role="dialog" aria-modal="true" aria-label="Product image zoom">
+      <button class="product-zoom-close" type="button" data-action="close" aria-label="Close">x</button>
+      <img class="product-zoom-image" alt="Product image enlarged" />
+    </div>
+  `;
+  modal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.getAttribute("data-action") === "close") {
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("modal-open");
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (modal.classList.contains("hidden")) return;
+    modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+  });
+  document.body.appendChild(modal);
+  productZoomModal = modal;
+  return modal;
+};
+
+const trackProductImageClick = (item) => {
+  const safeItem = String(item || "").trim();
+  if (!safeItem) return;
+  jsonFetch("/api/product-click", {
+    method: "POST",
+    timeoutMs: 4000,
+    body: JSON.stringify({ item: safeItem }),
+  }).catch(() => null);
+};
+
+const openProductZoom = ({ src, alt }) => {
+  if (!src) return;
+  const modal = ensureProductZoomModal();
+  const imageEl = modal.querySelector(".product-zoom-image");
+  if (!(imageEl instanceof HTMLImageElement)) return;
+  imageEl.src = src;
+  imageEl.alt = alt || "Product image enlarged";
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+};
+
+const initProductImageZoom = () => {
+  const productCards = Array.from(document.querySelectorAll(".hat-shot, .hoodie-card"));
+  productCards.forEach((card) => {
+    const img = card.querySelector("img");
+    const button = card.querySelector(".add-cart-btn");
+    if (!(img instanceof HTMLImageElement) || !(button instanceof HTMLElement)) return;
+    if (img.dataset.zoomBound === "1") return;
+    const item = String(button.getAttribute("data-item") || "").trim();
+    img.dataset.zoomBound = "1";
+    img.classList.add("zoomable-product-image");
+    img.addEventListener("click", () => {
+      openProductZoom({ src: img.src, alt: img.alt });
+      trackProductImageClick(item);
+    });
+  });
 };
 
 const getDesktopNotifyEnabled = () => localStorage.getItem(STAFF_NOTIFY_DESKTOP_KEY) === "true";
@@ -820,6 +893,7 @@ if (joinForm) {
 }
 
 addCartButtons.forEach((btn) => bindAddToCartButton(btn));
+initProductImageZoom();
 
 if (mobileNavToggle && mainNavLinks) {
   mobileNavToggle.addEventListener("click", () => {
@@ -1310,6 +1384,7 @@ const renderAdminInventory = (items) => {
       <p class="small"><strong>Item</strong></p>
       <p class="small"><strong>Stock</strong></p>
       <p class="small"><strong>Price</strong></p>
+      <p class="small"><strong>Clicks</strong></p>
       <p class="small"><strong>Remaining</strong></p>
     </div>
   `;
@@ -1318,6 +1393,7 @@ const renderAdminInventory = (items) => {
       const stockVal = entry.stock === null || typeof entry.stock === "undefined" ? "" : String(entry.stock);
       const priceVal = Number(adminPriceMap.get(entry.item) || 0).toFixed(2);
       const skuLabel = String(PRODUCT_SKUS[String(entry.item || "").trim()] || "N/A");
+      const clickCount = Math.max(0, Number(entry.clickCount || 0));
       const remainingLabel =
         entry.remaining === null ? "Not tracked" : `${entry.remaining} left (sold ${entry.sold || 0})`;
       return `
@@ -1325,6 +1401,7 @@ const renderAdminInventory = (items) => {
           <p class="small"><strong>${escapeHtml(entry.item)}</strong><br /><span class="small">SKU: ${escapeHtml(skuLabel)}</span></p>
           <input type="number" min="0" step="1" data-item-stock="${escapeHtml(entry.item)}" value="${escapeHtml(stockVal)}" placeholder="Untracked" />
           <input type="number" min="0.01" step="0.01" data-item-price="${escapeHtml(entry.item)}" value="${escapeHtml(priceVal)}" />
+          <p class="small">${clickCount}</p>
           <p class="small">${escapeHtml(remainingLabel)}</p>
         </div>
       `;

@@ -448,6 +448,10 @@ h3 {
     drop-shadow(0 5px 9px rgba(20, 20, 20, 0.1));
 }
 
+.zoomable-product-image {
+  cursor: zoom-in;
+}
+
 .hat-shot figcaption {
   position: relative;
   z-index: 1;
@@ -711,7 +715,7 @@ h3 {
 
 .inventory-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.6fr) 110px 110px 1fr;
+  grid-template-columns: minmax(180px, 1.6fr) 110px 110px 90px 1fr;
   gap: 0.55rem;
   align-items: center;
   padding: 0.35rem 0;
@@ -732,6 +736,59 @@ h3 {
   background: #fffdfa;
   padding: 0.45rem 0.55rem;
   font: inherit;
+}
+
+.product-zoom-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+}
+
+.product-zoom-modal.hidden {
+  display: none;
+}
+
+.product-zoom-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.product-zoom-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 840px);
+  max-height: 92vh;
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 0.8rem;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+.product-zoom-image {
+  width: 100%;
+  max-height: calc(92vh - 5rem);
+  object-fit: contain;
+  display: block;
+}
+
+.product-zoom-close {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.45rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.2rem 0.42rem;
+  cursor: pointer;
+}
+
+body.modal-open {
+  overflow: hidden;
 }
 
 .board-form textarea {
