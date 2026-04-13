@@ -940,6 +940,19 @@ body.modal-open {
   transform: translateY(0);
 }
 
+/* Keep top hat visible immediately on phones while others can still reveal in */
+@media (max-width: 640px) {
+  .reveal-ready #lineup-grid .hat-shot:first-child {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .reveal-ready #lineup-grid .hat-shot.top-hat-instant {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .hidden {
   display: none;
 }

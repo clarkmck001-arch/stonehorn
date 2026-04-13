@@ -166,9 +166,18 @@ const isPhoneViewport = () => {
 
 const ensureFirstHatVisibleOnPhone = () => {
   if (!lineupGrid || !isPhoneViewport()) return;
-  const firstHat = lineupGrid.querySelector(".hat-shot");
+  const hats = Array.from(lineupGrid.querySelectorAll(".hat-shot"));
+  hats.forEach((hat) => hat.classList.remove("top-hat-instant"));
+  const firstHat = hats[0];
   if (!firstHat) return;
+  firstHat.classList.add("top-hat-instant");
   firstHat.classList.add("is-visible");
+  const img = firstHat.querySelector("img");
+  if (img instanceof HTMLImageElement) {
+    img.loading = "eager";
+    img.decoding = "async";
+    img.setAttribute("fetchpriority", "high");
+  }
 };
 
 const animateCounter = (el) => {
