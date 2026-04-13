@@ -159,6 +159,18 @@ const revealObserver = new IntersectionObserver(
 
 revealEls.forEach((el) => revealObserver.observe(el));
 
+const isPhoneViewport = () => {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(max-width: 640px)").matches;
+};
+
+const ensureFirstHatVisibleOnPhone = () => {
+  if (!lineupGrid || !isPhoneViewport()) return;
+  const firstHat = lineupGrid.querySelector(".hat-shot");
+  if (!firstHat) return;
+  firstHat.classList.add("is-visible");
+};
+
 const animateCounter = (el) => {
   const goal = Number(el.dataset.counter) || 0;
   const duration = 1200;
@@ -738,6 +750,7 @@ const applyInventoryToButtons = () => {
     });
     hats.forEach((card) => lineupGrid.appendChild(card));
   }
+  ensureFirstHatVisibleOnPhone();
 };
 
 const loadPublicInventory = async () => {
@@ -894,6 +907,7 @@ if (joinForm) {
 
 addCartButtons.forEach((btn) => bindAddToCartButton(btn));
 initProductImageZoom();
+ensureFirstHatVisibleOnPhone();
 
 if (mobileNavToggle && mainNavLinks) {
   mobileNavToggle.addEventListener("click", () => {
