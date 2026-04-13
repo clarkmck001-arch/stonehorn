@@ -1276,12 +1276,13 @@ const renderAdminOrders = (items) => {
   adminOrdersList.innerHTML = items
     .map((item) => {
       const amount = Number(item.amountTotal || item.unitAmount || 0) / 100;
-      const paidDate = item.paidAt ? new Date(item.paidAt).toLocaleDateString() : "-";
+      const purchaseDate = item.paidAt || item.createdAt ? new Date(item.paidAt || item.createdAt).toLocaleString() : "-";
       const emailState = item.emailSentAt ? "Sent" : item.emailError ? "Error" : "Pending";
       const orderNum = formatOrderNumber(item.stripeSessionId);
       const itemSummary = formatOrderItemsLabel(item);
       const skuSummary = getOrderSkuSummary(item);
       const refundState = getRefundState(item);
+      const customerName = String(item.customerName || "").trim() || "N/A";
       const fulfillmentState =
         item.status === "shipped"
           ? "Shipped"
@@ -1305,16 +1306,21 @@ const renderAdminOrders = (items) => {
           : "";
       return `
       <article class="recent-card order-card reveal is-visible">
-        <p class="small"><strong>${escapeHtml(itemSummary)}</strong></p>
-        <p class="small">Order: ${orderNum}</p>
-        ${skuSummary ? `<p class="small">SKU: ${escapeHtml(skuSummary)}</p>` : ""}
-        <p class="small">Amount: $${amount.toFixed(2)}</p>
-        <p class="small">Email: ${item.customerEmail || "N/A"}</p>
-        <p class="small">Status: ${item.status || "unknown"} | Paid: ${paidDate}</p>
-        <p class="small ${fulfillmentClass}">Fulfillment: ${fulfillmentState}${shippedDate ? ` (${shippedDate})` : ""}</p>
-        ${refundState.label ? `<p class="small ${refundState.className}">Payment: ${escapeHtml(refundState.label)}</p>` : ""}
-        ${trackingSummary ? `<p class="small">Tracking: ${trackingSummary}</p>` : ""}
-        <p class="small">Confirmation Email: ${emailState}</p>
+        <details class="order-details">
+          <summary class="small">
+            <strong>${escapeHtml(orderNum)}</strong> | ${escapeHtml(purchaseDate)} | $${amount.toFixed(2)} | ${escapeHtml(customerName)}
+          </summary>
+          <div class="order-details-body">
+            <p class="small"><strong>${escapeHtml(itemSummary)}</strong></p>
+            ${skuSummary ? `<p class="small">SKU: ${escapeHtml(skuSummary)}</p>` : ""}
+            <p class="small">Email: ${escapeHtml(item.customerEmail || "N/A")}</p>
+            <p class="small">Status: ${escapeHtml(item.status || "unknown")} | Purchased: ${escapeHtml(purchaseDate)}</p>
+            <p class="small ${fulfillmentClass}">Fulfillment: ${fulfillmentState}${shippedDate ? ` (${shippedDate})` : ""}</p>
+            ${refundState.label ? `<p class="small ${refundState.className}">Payment: ${escapeHtml(refundState.label)}</p>` : ""}
+            ${trackingSummary ? `<p class="small">Tracking: ${escapeHtml(trackingSummary)}</p>` : ""}
+            <p class="small">Confirmation Email: ${emailState}</p>
+          </div>
+        </details>
       </article>
       `;
     })
@@ -1448,36 +1454,41 @@ const renderFulfillmentOrders = (items) => {
         ? `${item.shippingAddress.address1 || ""} ${item.shippingAddress.address2 || ""}, ${item.shippingAddress.city || ""}, ${item.shippingAddress.state || ""} ${item.shippingAddress.zip || ""}`.trim()
         : "N/A";
       const orderNum = formatOrderNumber(item.stripeSessionId);
+      const customerName = String(item.customerName || "").trim() || "N/A";
       return `
         <article class="recent-card order-card reveal is-visible">
-          <p class="small"><strong>${escapeHtml(itemSummary)}</strong></p>
-          <p class="small">Order: ${escapeHtml(orderNum)}</p>
-          ${skuSummary ? `<p class="small">SKU: ${escapeHtml(skuSummary)}</p>` : ""}
-          <p class="small">Order Date: ${escapeHtml(orderDate)}</p>
-          <p class="small">Amount: $${amount.toFixed(2)}</p>
-          <p class="small">Customer: ${escapeHtml(item.customerEmail || "N/A")}</p>
-          <p class="small">Ship To: ${escapeHtml(address)}</p>
-          <p class="small">Status: ${escapeHtml(item.status || "unknown")}</p>
-          ${refundState.label ? `<p class="small ${refundState.className}">Payment: ${escapeHtml(refundState.label)}</p>` : ""}
-          ${
-            item.trackingNumber
-              ? `<p class="small">Tracking: ${escapeHtml(item.carrier || "")} ${escapeHtml(item.trackingNumber || "")}</p>`
-              : ""
-          }
-          <div class="hunter-gate-actions">
-            ${
-              canPack
-                ? `<button class="btn btn-sm fulfillment-action" data-action="pack" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Mark Packed</button>`
-                : ""
-            }
-            ${
-              canShip
-                ? `<button class="btn btn-ghost btn-sm fulfillment-action" data-action="ship" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Mark Shipped</button>`
-                : ""
-            }
-            <button class="btn btn-ghost btn-sm fulfillment-action" data-action="copy-label" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Copy For Label</button>
-            <button class="btn btn-ghost btn-sm fulfillment-action" data-action="print-slip" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Print Slip</button>
-          </div>
+          <details class="order-details">
+            <summary class="small">
+              <strong>${escapeHtml(orderNum)}</strong> | ${escapeHtml(orderDate)} | $${amount.toFixed(2)} | ${escapeHtml(customerName)}
+            </summary>
+            <div class="order-details-body">
+              <p class="small"><strong>${escapeHtml(itemSummary)}</strong></p>
+              ${skuSummary ? `<p class="small">SKU: ${escapeHtml(skuSummary)}</p>` : ""}
+              <p class="small">Email: ${escapeHtml(item.customerEmail || "N/A")}</p>
+              <p class="small">Ship To: ${escapeHtml(address)}</p>
+              <p class="small">Status: ${escapeHtml(item.status || "unknown")}</p>
+              ${refundState.label ? `<p class="small ${refundState.className}">Payment: ${escapeHtml(refundState.label)}</p>` : ""}
+              ${
+                item.trackingNumber
+                  ? `<p class="small">Tracking: ${escapeHtml(item.carrier || "")} ${escapeHtml(item.trackingNumber || "")}</p>`
+                  : ""
+              }
+              <div class="hunter-gate-actions">
+                ${
+                  canPack
+                    ? `<button class="btn btn-sm fulfillment-action" data-action="pack" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Mark Packed</button>`
+                    : ""
+                }
+                ${
+                  canShip
+                    ? `<button class="btn btn-ghost btn-sm fulfillment-action" data-action="ship" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Mark Shipped</button>`
+                    : ""
+                }
+                <button class="btn btn-ghost btn-sm fulfillment-action" data-action="copy-label" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Copy For Label</button>
+                <button class="btn btn-ghost btn-sm fulfillment-action" data-action="print-slip" data-id="${escapeHtml(item.stripeSessionId || "")}" type="button">Print Slip</button>
+              </div>
+            </div>
+          </details>
         </article>
       `;
     })

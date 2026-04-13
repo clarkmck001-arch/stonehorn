@@ -36,6 +36,7 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const ORDER_EMAIL_FROM = process.env.ORDER_EMAIL_FROM || "";
 const ORDER_EMAIL_REPLY_TO = process.env.ORDER_EMAIL_REPLY_TO || "";
+const STAFF_ORDER_ALERT_TO = process.env.STAFF_ORDER_ALERT_TO || "";
 const LOW_STOCK_ALERT_TO = sanitizeEmail(process.env.LOW_STOCK_ALERT_TO || process.env.STONEHORN_ADMIN_EMAIL || "");
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || `http://${HOST}:${PORT}`;
 const EMAIL_LOGO_URL = process.env.EMAIL_LOGO_URL || `${PUBLIC_BASE_URL}/archive-6.png`;
@@ -855,6 +856,81 @@ async function stripeRequest(method, pathname, params) {
   return data;
 }
 
+function getStaffOrderAlertRecipients() {
+  const explicit = String(STAFF_ORDER_ALERT_TO || "")
+    .split(",")
+    .map((value) => sanitizeEmail(value))
+    .filter((value) => value && isValidEmail(value));
+  if (explicit.length) return Array.from(new Set(explicit));
+  const fallback = [sanitizeEmail(ADMIN_LOGIN_EMAIL), sanitizeEmail(WORKER_LOGIN_EMAIL)].filter(
+    (value) => value && isValidEmail(value)
+  );
+  return Array.from(new Set(fallback));
+}
+
+async function sendStaffOrderAlertEmail({ order }) {
+  const recipients = getStaffOrderAlertRecipients();
+  if (!RESEND_API_KEY || !ORDER_EMAIL_FROM || !recipients.length) {
+    return { sent: false, skipped: true, reason: "Staff order alert email not configured." };
+  }
+  const item = formatOrderItems(order);
+  const amount = (Math.max(0, Number(order?.amountTotal || order?.unitAmount || 0)) / 100).toFixed(2);
+  const shortOrderId = formatOrderNumber(order?.stripeSessionId || "");
+  const customerName = String(order?.customerName || "").trim() || "N/A";
+  const customerEmail = String(order?.customerEmail || "").trim() || "N/A";
+  const adminUrl = `${PUBLIC_BASE_URL}/admin-orders.html`;
+  const workerUrl = `${PUBLIC_BASE_URL}/fulfillment.html`;
+  const logoUrl = getEmailLogoSrc();
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.45;color:#1a1a1a">
+      <p style="margin:0 0 14px">
+        <img src="${logoUrl}" alt="Stonehorn" style="width:96px;height:96px;object-fit:contain;display:block" />
+      </p>
+      <h2 style="margin:0 0 10px">New Stonehorn order paid</h2>
+      <p><strong>Order:</strong> ${shortOrderId}</p>
+      <p><strong>Customer:</strong> ${escapeHtml(customerName)}</p>
+      <p><strong>Email:</strong> ${escapeHtml(customerEmail)}</p>
+      <p><strong>Items:</strong> ${escapeHtml(item)}</p>
+      <p><strong>Total:</strong> $${amount}</p>
+      <p><a href="${adminUrl}" style="color:#111;font-weight:700">Open admin orders</a></p>
+      <p><a href="${workerUrl}" style="color:#111;font-weight:700">Open fulfillment dashboard</a></p>
+    </div>
+  `;
+  const text = [
+    "New Stonehorn order paid",
+    `Order: ${shortOrderId}`,
+    `Customer: ${customerName}`,
+    `Email: ${customerEmail}`,
+    `Items: ${item}`,
+    `Total: $${amount}`,
+    `Admin: ${adminUrl}`,
+    `Fulfillment: ${workerUrl}`,
+  ].join("\n");
+  const payload = {
+    from: ORDER_EMAIL_FROM,
+    to: recipients,
+    subject: `New Stonehorn order ${shortOrderId}`,
+    html,
+    text,
+  };
+  if (ORDER_EMAIL_REPLY_TO) {
+    payload.reply_to = ORDER_EMAIL_REPLY_TO;
+  }
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return { sent: false, error: data?.message || "Email API failed." };
+  }
+  return { sent: true, id: data.id || "" };
+}
+
 async function sendOrderConfirmationEmail({ to, item, amountTotalCents, orderId, braggingEntryUrl = "" }) {
   if (!RESEND_API_KEY || !ORDER_EMAIL_FROM || !to) {
     console.warn("[email] Order confirmation skipped: missing config or recipient", {
@@ -1337,6 +1413,11 @@ async function handleApi(req, res, urlObj) {
       const metaPath = entryFromSession.path;
       const metaItemList = String(sessionObj?.metadata?.itemList || "").trim();
       const paymentIntentId = String(sessionObj?.payment_intent || "").trim();
+      const customerNameFromSession = String(
+        sessionObj?.customer_details?.name || sessionObj?.metadata?.customerName || ""
+      )
+        .trim()
+        .slice(0, 120);
       const existing = orders.find((o) => o.stripeSessionId === sessionObj.id);
       if (existing) {
         if (!isOrderFullyRefunded(existing)) {
@@ -1346,6 +1427,9 @@ async function handleApi(req, res, urlObj) {
         existing.paidAt = new Date().toISOString();
         existing.amountTotal = sessionObj.amount_total || existing.amountTotal || 0;
         existing.customerEmail = sessionObj.customer_details?.email || existing.customerEmail || "";
+        if (customerNameFromSession) {
+          existing.customerName = customerNameFromSession;
+        }
         if (paymentIntentId) {
           existing.stripePaymentIntentId = paymentIntentId;
         }
@@ -1375,6 +1459,7 @@ async function handleApi(req, res, urlObj) {
           amountTotal: sessionObj.amount_total || 0,
           stripePaymentIntentId: paymentIntentId || "",
           customerEmail: sessionObj.customer_details?.email || "",
+          customerName: customerNameFromSession,
           braggingEntry: metaToken
             ? {
                 token: metaToken,
@@ -1397,6 +1482,15 @@ async function handleApi(req, res, urlObj) {
           if (!order.itemList) order.itemList = displayItems;
         }
         createOrderPaidNotification(order);
+        if (!order.staffAlertEmailSentAt) {
+          const alertResult = await sendStaffOrderAlertEmail({ order });
+          if (alertResult.sent) {
+            order.staffAlertEmailSentAt = new Date().toISOString();
+            order.staffAlertEmailProviderId = alertResult.id || "";
+          } else if (!alertResult.skipped) {
+            order.staffAlertEmailError = alertResult.reason || alertResult.error || "Not sent";
+          }
+        }
       }
       if (order && !order.emailSentAt) {
         const entryToken = order?.braggingEntry?.token || "";
@@ -2028,6 +2122,9 @@ async function handleApi(req, res, urlObj) {
       const metadataPath = entryFromSession.path;
       const metadataItemList = String(stripeSession?.metadata?.itemList || "").trim();
       const paymentIntentId = String(stripeSession?.payment_intent || "").trim();
+      const sessionCustomerName = String(stripeSession?.customer_details?.name || stripeSession?.metadata?.customerName || "")
+        .trim()
+        .slice(0, 120);
 
       if (paid && order) {
         if (paymentIntentId && order.stripePaymentIntentId !== paymentIntentId) {
@@ -2059,6 +2156,10 @@ async function handleApi(req, res, urlObj) {
         const sessionEmail = stripeSession.customer_details?.email || "";
         if (sessionEmail && !order.customerEmail) {
           order.customerEmail = sessionEmail;
+          orderUpdated = true;
+        }
+        if (sessionCustomerName && !order.customerName) {
+          order.customerName = sessionCustomerName;
           orderUpdated = true;
         }
         if (!order.braggingEntry && metadataToken) {
@@ -2115,6 +2216,16 @@ async function handleApi(req, res, urlObj) {
           orderUpdated = true;
         }
         createOrderPaidNotification(order);
+        if (!order.staffAlertEmailSentAt) {
+          const alertResult = await sendStaffOrderAlertEmail({ order });
+          if (alertResult.sent) {
+            order.staffAlertEmailSentAt = new Date().toISOString();
+            order.staffAlertEmailProviderId = alertResult.id || "";
+          } else if (!alertResult.skipped) {
+            order.staffAlertEmailError = alertResult.reason || alertResult.error || "Not sent";
+          }
+          orderUpdated = true;
+        }
       }
 
       if (orderUpdated) {

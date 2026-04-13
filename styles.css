@@ -738,6 +738,33 @@ h3 {
   font: inherit;
 }
 
+.order-details summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.order-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.order-details summary::before {
+  content: "Show details";
+  display: inline-block;
+  margin-right: 0.55rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.order-details[open] summary::before {
+  content: "Hide details";
+}
+
+.order-details-body {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+
 .product-zoom-modal {
   position: fixed;
   inset: 0;
