@@ -1289,6 +1289,11 @@ function getFileTypeFromDataUrl(dataUrl) {
 }
 
 function sendStatic(reqPath, res) {
+  if (reqPath === "/our-story.html") {
+    res.writeHead(302, { Location: "/" });
+    res.end();
+    return;
+  }
   let filePath = path.join(ROOT, reqPath === "/" ? "index.html" : reqPath.slice(1));
   filePath = path.normalize(filePath);
   if (!filePath.startsWith(ROOT)) {
