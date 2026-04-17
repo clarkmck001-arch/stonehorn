@@ -148,18 +148,27 @@ const PRODUCT_SKUS = {
   "Bragging Board Entry": "SH-BRD-001",
 };
 
-const revealObserver = new IntersectionObserver(
-  (entries, observer) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-      entry.target.classList.add("is-visible");
-      observer.unobserve(entry.target);
-    });
-  },
-  { threshold: 0.2 }
-);
+const showAllRevealElements = () => {
+  revealEls.forEach((el) => el.classList.add("is-visible"));
+};
 
-revealEls.forEach((el) => revealObserver.observe(el));
+if (typeof IntersectionObserver === "function") {
+  const revealObserver = new IntersectionObserver(
+    (entries, observer) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.2 }
+  );
+  revealEls.forEach((el) => revealObserver.observe(el));
+} else {
+  // Fallback for older mobile browsers/webviews.
+  showAllRevealElements();
+  document.documentElement.classList.remove("reveal-ready");
+}
 
 const isPhoneViewport = () => {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
@@ -195,18 +204,24 @@ const animateCounter = (el) => {
   requestAnimationFrame(step);
 };
 
-const counterObserver = new IntersectionObserver(
-  (entries, observer) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-      animateCounter(entry.target);
-      observer.unobserve(entry.target);
-    });
-  },
-  { threshold: 0.5 }
-);
-
-counterEls.forEach((el) => counterObserver.observe(el));
+if (typeof IntersectionObserver === "function") {
+  const counterObserver = new IntersectionObserver(
+    (entries, observer) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        animateCounter(entry.target);
+        observer.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.5 }
+  );
+  counterEls.forEach((el) => counterObserver.observe(el));
+} else {
+  counterEls.forEach((el) => {
+    const goal = Number(el.dataset.counter) || 0;
+    el.textContent = String(goal);
+  });
+}
 
 chips.forEach((chip) => {
   chip.addEventListener("click", () => {
