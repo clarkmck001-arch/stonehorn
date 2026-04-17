@@ -1084,6 +1084,13 @@ body.modal-open {
 }
 
 @media (max-width: 640px) {
+  .reveal-ready .reveal,
+  .reveal-ready .reveal.is-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
   .section {
     padding: 3rem 0;
   }
@@ -1138,6 +1145,8 @@ body.modal-open {
   }
 
   .hat-shot {
+    display: block;
+    aspect-ratio: auto;
     padding: 0.75rem 0.75rem 0.65rem;
   }
 
@@ -1178,7 +1187,18 @@ body.modal-open {
   }
 
   .hat-shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: none;
+    object-fit: contain;
+    object-position: center;
     filter: none;
+  }
+
+  .hat-shot figcaption {
+    margin-top: 0.45rem;
   }
 
   .footer {
