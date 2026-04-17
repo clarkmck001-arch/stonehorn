@@ -121,7 +121,7 @@ const PRODUCT_IMAGE_MAP = {
   "Cream Badge Hat": "./IMG_7934.PNG",
   "Cream Mountain Script Hat": "./IMG_7922.PNG",
   "Black Gold Ibex Hat": "./IMG_7921.PNG",
-  "Blackout Ibex Rope Hat": "./Screenshot 2026-04-13 150415.png",
+  "Blackout Ibex Rope Hat": "./IMG_7924.PNG",
   "Cream Backcountry Patch Hat": "./IMG_7936.PNG",
   "Black Brush Hoodie": "./archive-2.jpg",
   "Black Forest Hoodie": "./archive-2.jpg",
