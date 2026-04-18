@@ -149,6 +149,10 @@ h3 {
   font-size: clamp(2.2rem, 7vw, 6rem);
   line-height: 0.95;
   max-width: 14ch;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.9);
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.85),
+    0 4px 12px rgba(0, 0, 0, 0.65);
 }
 
 .hero-content h1 span {
@@ -190,6 +194,9 @@ h3 {
 .hero-content .eyebrow,
 .hero-content .lede {
   color: #e3dacd;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.95),
+    0 2px 8px rgba(0, 0, 0, 0.65);
 }
 
 .lede {
