@@ -46,6 +46,19 @@ body {
   padding: 4rem 0;
 }
 
+.hero.section {
+  width: 100%;
+  max-width: none;
+  padding: 2.2rem 0 4rem;
+}
+
+.hero > .nav,
+.hero > .hero-stats {
+  width: min(1100px, calc(100% - 2rem));
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .nav {
   display: flex;
   justify-content: space-between;
@@ -165,7 +178,11 @@ h3 {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: transparent;
-  padding: 1.15rem 1.15rem 1.25rem;
+  width: 100%;
+  margin: 0;
+  border-left: 0;
+  border-right: 0;
+  padding: 1.15rem max(1.15rem, calc((100vw - 1100px) / 2 + 1.15rem)) 1.25rem;
   color: #f6f2ea;
 }
 
@@ -1136,6 +1153,14 @@ body.modal-open {
 
   .section {
     padding: 3rem 0;
+  }
+
+  .hero.section {
+    padding-top: 1rem;
+  }
+
+  .hero-content {
+    padding: 1rem 1rem 1.2rem;
   }
 
   .nav-links {
