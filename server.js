@@ -1292,6 +1292,17 @@ function getFileTypeFromDataUrl(dataUrl) {
 }
 
 function sendStatic(reqPath, res) {
+  if (reqPath === "/favicon.ico") {
+    const iconPath = path.join(ROOT, "archive-6.png");
+    if (fs.existsSync(iconPath)) {
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=604800",
+      });
+      fs.createReadStream(iconPath).pipe(res);
+      return;
+    }
+  }
   if (reqPath === "/our-story.html") {
     res.writeHead(302, { Location: "/" });
     res.end();
