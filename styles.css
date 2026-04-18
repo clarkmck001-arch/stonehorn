@@ -186,7 +186,7 @@ h3 {
   margin: 0;
   border-left: 0;
   border-right: 0;
-  padding: 1.15rem max(1.15rem, calc((100vw - 1100px) / 2 + 1.15rem)) 1.25rem;
+  padding: 1.15rem max(0.35rem, calc((100vw - 1100px) / 2 + 0.35rem)) 1.25rem;
   color: #f6f2ea;
 }
 
